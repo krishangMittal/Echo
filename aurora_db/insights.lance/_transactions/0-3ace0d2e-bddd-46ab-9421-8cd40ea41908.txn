@@ -1,0 +1,5 @@
+$3ace0d2e-bddd-46ab-9421-8cd40ea41908²,
+insight_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault+user_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault3conversation_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault-	speech_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault0insight_text ÿÿÿÿÿÿÿÿÿ*string08Zdefault0insight_type ÿÿÿÿÿÿÿÿÿ*string08Zdefault4confidence_score ÿÿÿÿÿÿÿÿÿ*double08Zdefault-	timestamp ÿÿÿÿÿÿÿÿÿ*string08Zdefault7supporting_evidence ÿÿÿÿÿÿÿÿÿ*string08Zdefault:psychological_category	 ÿÿÿÿÿÿÿÿÿ*string08ZdefaultEinsight_vector
+ ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:38408Zdefault"'
+lance.auto_cleanup.older_than14days"!
+lance.auto_cleanup.interval20

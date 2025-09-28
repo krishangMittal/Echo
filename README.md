@@ -7,7 +7,7 @@ FastAPI service that ingests webhook payloads, persists conversational memory in
 - Python 3.11+
 - `pip install -r requirements.txt`
 - Copy `.env.example` to `.env` and populate the credentials:
-  - `OPENAI_API_KEY`
+  - `DEEPSEEK_API_KEY`
   - Optional: `INGEST_WEBHOOK_SECRET` if you want signature verification enabled.
   - Tweak embedding and Lance paths as needed.
 

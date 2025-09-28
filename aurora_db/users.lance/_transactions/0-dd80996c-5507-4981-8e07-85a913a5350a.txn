@@ -1,0 +1,5 @@
+$dd80996c-5507-4981-8e07-85a913a5350a²˜)user_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
+created_at ÿÿÿÿÿÿÿÿÿ*string08Zdefault6total_conversations ÿÿÿÿÿÿÿÿÿ*int6408Zdefault:avg_relationship_level ÿÿÿÿÿÿÿÿÿ*double08Zdefault3avg_trust_level ÿÿÿÿÿÿÿÿÿ*double08Zdefault6avg_emotional_sync ÿÿÿÿÿÿÿÿÿ*double08Zdefault5dominant_emotions ÿÿÿÿÿÿÿÿÿ*string08Zdefault3frequent_topics ÿÿÿÿÿÿÿÿÿ*string08Zdefault7communication_style ÿÿÿÿÿÿÿÿÿ*string08Zdefault9vulnerability_pattern	 ÿÿÿÿÿÿÿÿÿ*double08Zdefault6personality_traits
+ ÿÿÿÿÿÿÿÿÿ*string08Zdefault/last_active ÿÿÿÿÿÿÿÿÿ*string08ZdefaultEprofile_vector ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:38408Zdefault"'
+lance.auto_cleanup.older_than14days"!
+lance.auto_cleanup.interval20
