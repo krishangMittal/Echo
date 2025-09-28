@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avatar Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400&display=swap" rel="stylesheet" />
+  <link href="https://api.fontshare.com/v2/css?f[]=pp-editorial-new@400&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="page__header">
+      <h1 class="page__title">How can I help?</h1>
+    </header>
+    <main class="page__main">
+      <div class="avatar-wrapper" role="img" aria-label="Animated conversational avatar">
+        <div class="orb" aria-hidden="true"></div>
+      </div>
+      <section class="chat" id="chat-panel" aria-live="polite" aria-hidden="true">
+        <div class="chat__messages" id="messages"></div>
+        <form class="chat__form" id="chat-form" autocomplete="off">
+          <input class="chat__input" id="chat-input" type="text" name="message" placeholder="Ask me anything…" required />
+          <button class="chat__send" type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+    <button class="keyboard" id="keyboard-toggle" type="button" aria-expanded="false" aria-controls="chat-panel" aria-label="Open chat keyboard" title="Open chat keyboard">
+      <img src="/assets/keyboard.png" alt="" aria-hidden="true" />
+    </button>
+    <div class="floating-controls">
+      <button class="mute" id="mute-toggle" type="button" aria-pressed="false" aria-label="Mute avatar" title="Mute avatar">🔇</button>
+    </div>
+  </div>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

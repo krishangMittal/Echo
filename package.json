@@ -1,0 +1,14 @@
+{
+  "name": "assistant",
+  "version": "1.0.0",
+  "description": "Minimal avatar chat front end with Gemini proxy backend",
+  "type": "module",
+  "scripts": {
+    "dev": "source venv/bin/activate && python backend/main.py",
+    "start": "source venv/bin/activate && python backend/main.py"
+  },
+  "keywords": ["chat", "avatar", "gemini", "flask"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {}
+}
