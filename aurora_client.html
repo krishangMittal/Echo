@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aurora Speech Capture</title>
+    <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        #status {
+            font-size: 18px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        #messages {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: scroll;
+            border: 1px solid #333;
+        }
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #00ff88;
+            padding-left: 10px;
+        }
+        .user-speech {
+            background: #003322;
+            color: #00ff88;
+            font-weight: bold;
+        }
+        .replica-speech {
+            background: #222244;
+            color: #8888ff;
+        }
+        .system-message {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Aurora Real-time Speech Processing</h1>
+    <div id="status">Connecting...</div>
+    <div id="messages"></div>
+
+    <script>
+        let call;
+        const BACKEND_URL = "https://vasoinhibitory-daniele-investigable.ngrok-free.dev";
+        
+        const addMessage = (msg, type = 'system') => {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${msg}`;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            console.log(msg);
+        };
+
+        addMessage('Creating Daily frame...', 'system-message');
+        
+        try {
+            call = window.Daily.createFrame();
+            addMessage('Daily frame created', 'system-message');
+            
+            call.on('app-message', (event) => {
+                const data = event.data;
+                console.log('App message:', data);
+                
+                if (data.event_type === 'conversation.utterance') {
+                    const speech = data.properties.speech;
+                    const role = data.properties.role;
+                    
+                    if (role === 'user' && speech) {
+                        addMessage(`You said: ${speech}`, 'user-speech');
+                        
+                        // Send to backend for processing
+                        fetch(`${BACKEND_URL}/api/process-speech`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({text: speech})
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            addMessage('Speech processed and analyzed!', 'system-message');
+                            
+                            // Show analysis results
+                            const analysis = result.speech_record.analysis;
+                            addMessage(`Analysis: ${analysis.topic} | ${analysis.emotion} | Importance: ${analysis.importance}/10`, 'system-message');
+                        })
+                        .catch(err => {
+                            addMessage(`Error sending to backend: ${err}`, 'system-message');
+                        });
+                        
+                    } else if (role === 'replica' && speech) {
+                        addMessage(`Aurora said: ${speech}`, 'replica-speech');
+                    }
+                }
+                else if (data.event_type === 'conversation.user.started_speaking') {
+                    addMessage('You started speaking...', 'system-message');
+                }
+                else if (data.event_type === 'conversation.replica.started_speaking') {
+                    addMessage('Aurora is responding...', 'system-message');
+                }
+            });
+            
+            call.on('joined-meeting', () => {
+                addMessage('Connected to Aurora! Start speaking...', 'system-message');
+                document.getElementById('status').textContent = 'Connected! Aurora is listening...';
+                document.getElementById('status').style.background = '#003322';
+            });
+            
+            call.on('error', (error) => {
+                addMessage(`Error: ${error}`, 'system-message');
+            });
+            
+            // Use your NEW conversation URL
+            const conversationURL = 'https://tavus.daily.co/c4186ea25b881413';
+            
+            addMessage(`Joining: ${conversationURL}`, 'system-message');
+            call.join({ url: conversationURL });
+            
+        } catch (error) {
+            addMessage(`JavaScript error: ${error}`, 'system-message');
+        }
+
+        // Add function to get current metrics
+        function getMetrics() {
+            fetch(`${BACKEND_URL}/api/metrics`)
+            .then(response => response.json())
+            .then(metrics => {
+                addMessage(`Current Metrics - Relationship: ${metrics.relationship_level.toFixed(1)}/100, Trust: ${metrics.trust_level.toFixed(1)}/100, Emotion: ${metrics.current_emotion}`, 'system-message');
+            });
+        }
+
+        // Get metrics every 10 seconds
+        setInterval(getMetrics, 10000);
+    </script>
+</body>
+</html>
