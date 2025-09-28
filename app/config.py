@@ -15,20 +15,36 @@ class Settings(BaseSettings):
     """Central configuration for the Echo memory service."""
 
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
+    cohere_api_key: Optional[str] = Field(default=None, env="COHERE_API_KEY")
+    deepseek_api_key: Optional[str] = Field(default=None, env="DEEPSEEK_API_KEY")
+    tavus_api_key: Optional[str] = Field(default=None, env="TAVUS_API_KEY")
     ingest_webhook_secret: Optional[str] = Field(default=None, env="INGEST_WEBHOOK_SECRET")
 
+    # Pinecone configuration
+    pinecone_api_key: Optional[str] = Field(default=None, env="PINECONE_API_KEY")
+    pinecone_index: str = Field(default="aurora-semantic-memory", env="PINECONE_INDEX")
+    pinecone_cloud: str = Field(default="aws", env="PINECONE_CLOUD")
+    pinecone_region: str = Field(default="us-east-1", env="PINECONE_REGION")
+    pinecone_namespace: Optional[str] = Field(default="prod", env="PINECONE_NAMESPACE")
+
+    # Legacy LanceDB configuration (deprecated)
     lance_db_uri: str = Field(default="memory_db", env="LANCE_DB_URI")
     lance_table_name: str = Field(default="conversation_memory", env="LANCE_TABLE_NAME")
     hot_index_path: Path = Field(default=Path("hot_index"), env="HOT_INDEX_PATH")
 
-    embed_model: str = Field(default="text-embedding-3-small", env="EMBED_MODEL")
-    embed_dim: int = Field(default=1536, env="EMBED_DIM")
+    # Embedding configuration - updated for Cohere
+    embed_model: str = Field(default="embed-english-light-v3.0", env="EMBED_MODEL")
+    embed_dim: int = Field(default=384, env="EMBED_DIM")
     chunk_tokens: int = Field(default=400, env="CHUNK_TOKENS")
     chunk_overlap: int = Field(default=80, env="CHUNK_OVERLAP")
     min_tokens: int = Field(default=20, env="MIN_TOKENS")
     embed_batch: int = Field(default=64, env="EMBED_BATCH")
     hot_window_min: int = Field(default=15, env="HOT_WINDOW_MIN")
     topk: int = Field(default=5, env="TOPK")
+
+    # Distance thresholds
+    identity_max_distance: float = Field(default=0.40, env="IDENTITY_MAX_DISTANCE")
+    default_max_distance: float = Field(default=0.35, env="DEFAULT_MAX_DISTANCE")
 
     hnsw_m: int = Field(default=64, env="HNSW_M")
     hnsw_ef_con: int = Field(default=200, env="HNSW_EF_CON")
@@ -37,7 +53,10 @@ class Settings(BaseSettings):
     # Webhook verification can be disabled for local testing
     webhook_verify: bool = Field(default=True, env="WEBHOOK_VERIFY")
 
-    config_version: int = Field(default=2, env="CONFIG_VERSION")
+    # Environment
+    aurora_env: str = Field(default="prod", env="AURORA_ENV")
+
+    config_version: int = Field(default=3, env="CONFIG_VERSION")
 
     class Config:
         env_file = ".env"

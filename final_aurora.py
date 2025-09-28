@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from dotenv import load_dotenv
 from openai import OpenAI
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -27,7 +27,11 @@ load_dotenv()
 # ============================================================================
 
 TAVUS_API_KEY = os.getenv("TAVUS_API_KEY")
+TAVUS_PERSONA_ID = os.getenv("TAVUS_PERSONA_ID")
+TAVUS_REPLICA_ID = os.getenv("TAVUS_REPLICA_ID")
+TAVUS_CLOUD_CALLBACK_BASE = os.getenv("TAVUS_CLOUD_CALLBACK_BASE")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+COHERE_API_KEY = os.getenv("COHERE_API_KEY")
 BASE_URL = "https://tavusapi.com/v2"
 
 # Initialize DeepSeek client
@@ -63,10 +67,11 @@ db = None
 users_table = None
 conversations_table = None
 insights_table = None
+semantic_memory_table = None
 
 def init_database():
     """Initialize LanceDB database and tables"""
-    global db, users_table, conversations_table, insights_table
+    global db, users_table, conversations_table, insights_table, semantic_memory_table
 
     try:
         # Connect to LanceDB
@@ -146,45 +151,575 @@ def init_database():
             insights_table = db.create_table("insights", schema=insights_schema)
             print("Created new insights table")
 
+        # Semantic Memory Schema for vector-based memory storage
+        semantic_memory_schema = pa.schema([
+            pa.field("memory_id", pa.string()),
+            pa.field("user_id", pa.string()),
+            pa.field("text_content", pa.string()),
+            pa.field("context_type", pa.string()),  # "conversation", "name", "preference", etc.
+            pa.field("timestamp", pa.string()),
+            pa.field("topic", pa.string()),
+            pa.field("emotion", pa.string()),
+            pa.field("importance", pa.float64()),
+            pa.field("embedding_vector", pa.list_(pa.float32(), 384)),  # Cohere embeddings
+            pa.field("metadata", pa.string())  # JSON metadata
+        ])
+
+        try:
+            semantic_memory_table = db.open_table("semantic_memory")
+            print("Opened existing semantic memory table")
+        except:
+            semantic_memory_table = db.create_table("semantic_memory", schema=semantic_memory_schema)
+            print("Created new semantic memory table")
+
+        # Create vector index for efficient similarity search
+        try:
+            semantic_memory_table.create_index(
+                "embedding_vector",
+                index_type="IVF_PQ",   # good default; or "HNSW"
+                metric="cosine",
+                num_partitions=16,
+                num_sub_vectors=16
+            )
+            print("✅ Vector index ensured on semantic_memory.embedding_vector")
+        except Exception as e:
+            print(f"ℹ️ Index create/ensure note: {e}")
+
         return True
 
     except Exception as e:
         print(f"Database initialization error: {e}")
         return False
 
+def ensure_db():
+    """Ensure LanceDB is initialized; call on-demand in read paths."""
+    global db, users_table, conversations_table, insights_table, semantic_memory_table
+    if db is None or any(t is None for t in [users_table, conversations_table, insights_table, semantic_memory_table]):
+        init_database()
+    return db is not None and semantic_memory_table is not None
+
 def get_text_embedding(text: str) -> List[float]:
-    """Generate embedding for text using simple hashing approach (fallback since DeepSeek doesn't have embeddings)"""
+    """Generate embedding for text using Cohere API"""
     try:
-        # Simple text-to-vector conversion using character frequencies and position
-        import hashlib
-
-        # Create a simple but consistent embedding based on text content
-        text_hash = hashlib.md5(text.encode()).hexdigest()
-
-        # Convert hash to float vector
-        embedding = []
-        for i in range(0, len(text_hash), 2):
-            # Convert hex pairs to floats between -1 and 1
-            hex_val = int(text_hash[i:i+2], 16)
-            normalized = (hex_val - 127.5) / 127.5
-            embedding.append(normalized)
-
-        # Extend to 384 dimensions by repeating and adding text features
-        while len(embedding) < 384:
-            # Add features based on text characteristics
-            embedding.append(len(text) / 1000.0)  # Text length feature
-            embedding.append(text.count(' ') / len(text) if text else 0)  # Word density
-            embedding.append(sum(c.isupper() for c in text) / len(text) if text else 0)  # Caps ratio
-            # Repeat the hash-based features
-            embedding.extend(embedding[:min(10, 384 - len(embedding))])
-
-        # Truncate to exactly 384 dimensions
-        embedding = embedding[:384]
-
-        return embedding
+        if not COHERE_API_KEY:
+            print("❌ COHERE_API_KEY not found, using fallback")
+            return get_fallback_embedding(text)
+        
+        # Use Cohere Embed API according to official docs
+        url = "https://api.cohere.ai/v1/embed"
+        
+        headers = {
+            "Authorization": f"Bearer {COHERE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        # Using embed-english-light-v3.0 for 384 dimensions (matches your schema)
+        payload = {
+            "texts": [text],
+            "model": "embed-english-light-v3.0",
+            "input_type": "search_document",
+            "truncate": "END"
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        
+        if response.status_code == 200:
+            result = response.json()
+            embeddings = result.get("embeddings", [])
+            if embeddings and len(embeddings) > 0:
+                embedding = embeddings[0]
+                print(f"✅ Cohere embedding generated: {len(embedding)} dimensions")
+                return embedding
+        else:
+            print(f"❌ Cohere API error: {response.status_code} - {response.text}")
+        
     except Exception as e:
-        print(f"Embedding generation error: {e}")
-        return [0.0] * 384
+        print(f"❌ Cohere embedding error: {e}")
+    
+    # Fallback to local method if API fails
+    print("🔄 Using fallback embedding method")
+    return get_fallback_embedding(text)
+
+def get_fallback_embedding(text: str) -> List[float]:
+    """Improved fallback embedding using text characteristics"""
+    import hashlib
+    
+    # Create features based on text content
+    features = []
+    
+    # Basic text statistics
+    features.extend([
+        len(text) / 1000.0,  # Length
+        text.count(' ') / max(len(text), 1),  # Word density
+        sum(c.isupper() for c in text) / max(len(text), 1),  # Caps ratio
+        sum(c.isdigit() for c in text) / max(len(text), 1),  # Digit ratio
+        text.count('!') / max(len(text), 1),  # Exclamation ratio
+        text.count('?') / max(len(text), 1),  # Question ratio
+    ])
+    
+    # Word-level features
+    words = text.lower().split()
+    if words:
+        features.extend([
+            len(words) / 100.0,  # Word count
+            sum(len(w) for w in words) / len(words) / 10.0,  # Avg word length
+        ])
+    else:
+        features.extend([0.0, 0.0])
+    
+    # Hash-based features for consistency
+    text_hash = hashlib.md5(text.encode()).hexdigest()
+    for i in range(0, len(text_hash), 2):
+        hex_val = int(text_hash[i:i+2], 16)
+        normalized = (hex_val - 127.5) / 127.5
+        features.append(normalized)
+    
+    # Extend to 384 dimensions to match Cohere light model
+    target_dims = 384
+    while len(features) < target_dims:
+        # Repeat and modify existing features
+        base_features = features[:min(50, target_dims - len(features))]
+        for i, feat in enumerate(base_features):
+            if len(features) >= target_dims:
+                break
+            # Add slight variation
+            features.append(feat * (1 + 0.1 * (i % 10 - 5)))
+    
+    return features[:target_dims]
+
+def extract_name_from_speech(speech_text: str) -> Optional[str]:
+    """Extract name from speech patterns"""
+    import re
+    
+    text = speech_text.lower()
+    
+    # Common name introduction patterns
+    name_patterns = [
+        r"my name is (\w+)",
+        r"i'm (\w+)",
+        r"i am (\w+)",
+        r"call me (\w+)",
+        r"this is (\w+)",
+        r"name's (\w+)",
+        r"they call me (\w+)",
+        r"people call me (\w+)",
+        r"you can call me (\w+)"
+    ]
+    
+    for pattern in name_patterns:
+        match = re.search(pattern, text)
+        if match:
+            name = match.group(1).capitalize()
+            # Filter out common words that aren't names
+            common_words = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 
+                          'for', 'of', 'with', 'by', 'from', 'up', 'about', 'into', 'over', 
+                          'after', 'good', 'new', 'first', 'last', 'long', 'great', 'little', 
+                          'own', 'other', 'old', 'right', 'big', 'high', 'different', 'small',
+                          'large', 'next', 'early', 'young', 'important', 'few', 'public', 
+                          'same', 'able']
+            if name.lower() not in common_words and len(name) > 1:
+                return name
+    
+    return None
+
+
+# Simple cache to avoid table scans on hot path
+_user_name_cache = {}
+
+def store_user_name(user_id: str, name: str):
+    """Upsert user's display name into users table and cache."""
+    global users_table
+    if not ensure_db() or users_table is None:
+        return
+
+    try:
+        df = users_table.to_pandas()
+        now = datetime.now().isoformat()
+
+        if len(df) > 0 and (df['user_id'] == user_id).any():
+            # delete then re-insert (Lance doesn't have native upsert yet)
+            users_table.delete(f"user_id = '{user_id}'")
+            row = df[df['user_id'] == user_id].iloc[0].to_dict()
+        else:
+            row = {
+                "user_id": user_id,
+                "created_at": now,
+                "total_conversations": 0,
+                "avg_relationship_level": 25.0,
+                "avg_trust_level": 35.0,
+                "avg_emotional_sync": 45.0,
+                "dominant_emotions": json.dumps(["neutral"]),
+                "frequent_topics": json.dumps(["general"]),
+                "communication_style": "exploring",
+                "vulnerability_pattern": 3.0,
+                "personality_traits": json.dumps({}),
+                "last_active": now,
+                "profile_vector": [0.0] * 384,
+            }
+
+        # persist the name in personality_traits and a top-level convenience field
+        traits = {}
+        try:
+            traits = json.loads(row.get("personality_traits") or "{}")
+        except Exception:
+            traits = {}
+        traits["name"] = name
+        traits["name_extracted_at"] = now
+
+        row["personality_traits"] = json.dumps(traits)
+        row["last_active"] = now
+        # Note: display_name field will be added dynamically by LanceDB if not in schema
+
+        users_table.add([row])
+        _user_name_cache[user_id] = name
+        print(f"💾 Stored name '{name}' for user {user_id} (persisted)")
+    except Exception as e:
+        print(f"❌ Error storing user name: {e}")
+
+def get_user_name(user_id: str) -> Optional[str]:
+    if user_id in _user_name_cache:
+        return _user_name_cache[user_id]
+    if not ensure_db() or users_table is None:
+        return None
+    try:
+        df = users_table.to_pandas()
+        if len(df) == 0:
+            return None
+        hit = df[df['user_id'] == user_id]
+        if len(hit) == 0:
+            return None
+        # try display_name then traits
+        name = hit.iloc[0].to_dict().get("display_name")
+        if not name:
+            traits = hit.iloc[0].to_dict().get("personality_traits")
+            if traits:
+                try:
+                    name = json.loads(traits).get("name")
+                except Exception:
+                    name = None
+        if name:
+            _user_name_cache[user_id] = name
+        return name
+    except Exception as e:
+        print(f"❌ Error reading user name: {e}")
+        return None
+
+def recall_user_name_fast(user_id: str) -> Optional[str]:
+    """Fast deterministic name recall - checks cache, users table, then recent memories"""
+    # 1) users table / cache
+    n = get_user_name(user_id)
+    if n:
+        return n
+
+    # 2) scan latest semantic memories that carried extracted_name in metadata
+    if not ensure_db() or semantic_memory_table is None:
+        return None
+    try:
+        df = semantic_memory_table.to_pandas()
+        if len(df) == 0:
+            return None
+        df = df[df["user_id"] == user_id].sort_values("timestamp", ascending=False)
+        for _, row in df.head(50).iterrows():
+            try:
+                md = json.loads(row.get("metadata") or "{}")
+                n = md.get("extracted_name")
+                if n:
+                    store_user_name(user_id, n)  # persist and cache
+                    return n
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"Name recall scan error: {e}")
+    return None
+
+def build_context_from_db(user_id: str) -> str:
+    """
+    Pull the freshest facts from Aurora LanceDB (name, prefs, last topics, etc.)
+    and turn them into a compact context string for Tavus.
+    """
+    try:
+        # First try to get name from users table, then from semantic memory
+        name = recall_user_name_fast(user_id)
+        
+        # If no name found, check if this is "abiodun" user_id and set default
+        if not name and user_id.lower() == "abiodun":
+            name = "Abiodun"
+            # Store this name for future reference
+            store_user_name(user_id, name)
+            print(f"👤 Set default name '{name}' for user {user_id}")
+        elif not name:
+            name = user_id  # fallback to user_id
+            
+        stats = get_user_memory_stats(user_id) or {}
+        total = stats.get("total_memories", 0)
+        
+        # Get recent topics from memory stats
+        topics_dict = stats.get("topics", {})
+        topics = ", ".join(list(topics_dict.keys())[:5])[:200] if topics_dict else "general conversation"
+        
+        # Get recent memories for additional context
+        recent_memories = search_semantic_memory(user_id, "conversation", top_k=5, max_distance=0.4)
+        recent_context = ""
+        if recent_memories:
+            # Extract key information from recent memories
+            memory_snippets = []
+            for mem in recent_memories[:3]:
+                text = mem.get('text', '')
+                if len(text) > 50:
+                    memory_snippets.append(f"Previously discussed: '{text[:50]}...'")
+                else:
+                    memory_snippets.append(f"Previously: '{text}'")
+            recent_context = f" {' | '.join(memory_snippets)}."
+        
+        # Add specific context about being Abiodun if that's the user
+        personal_context = ""
+        if user_id.lower() == "abiodun":
+            personal_context = " User is Abiodun, a computer science student passionate about AI."
+        
+        context = (
+            f"User preferred name: {name}. "
+            f"Stored memories: {total}. "
+            f"Main topics: {topics}.{recent_context}{personal_context} "
+            f"IMPORTANT: When asked about their name, always respond with '{name}'. "
+            f"Remember and reference past conversations when relevant."
+        )
+        
+        print(f"🧠 Built Tavus context for {user_id}: {context[:150]}...")
+        return context
+        
+    except Exception as e:
+        print(f"❌ Error building context from DB: {e}")
+        # Provide a better fallback for known users
+        if user_id.lower() == "abiodun":
+            return "User preferred name: Abiodun. User is Abiodun, a computer science student passionate about AI. When asked about their name, always respond with 'Abiodun'."
+        return f"User preferred name: {user_id}. Ready to continue our conversation."
+
+# ============================================================================
+# SEMANTIC MEMORY SYSTEM - Vector-based memory storage and retrieval
+# ============================================================================
+
+def store_semantic_memory(user_id: str, text: str, context_type: str = "conversation", metadata: Dict = None):
+    """Store semantic memory using vector embeddings in LanceDB"""
+    global semantic_memory_table
+    
+    if not ensure_db() or semantic_memory_table is None:
+        print("❌ Semantic memory table not initialized")
+        return False
+    
+    try:
+        # Generate embedding using Cohere
+        embedding = get_text_embedding(text)
+        
+        # Extract context information
+        extracted_name = extract_name_from_speech(text) if "name" in text.lower() else None
+        
+        # Determine topic and emotion (simplified - could use DeepSeek for this)
+        topic = "general"
+        emotion = "neutral"
+        importance = 5.0
+        
+        if metadata:
+            topic = metadata.get('topic', topic)
+            emotion = metadata.get('emotion', emotion)
+            importance = metadata.get('importance', importance)
+        
+        # Create memory record
+        memory_record = {
+            "memory_id": f"mem_{user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}",
+            "user_id": user_id,
+            "text_content": text,
+            "context_type": context_type,
+            "timestamp": datetime.now().isoformat(),
+            "topic": topic,
+            "emotion": emotion,
+            "importance": importance,
+            "embedding_vector": embedding,
+            "metadata": json.dumps({
+                "extracted_name": extracted_name,
+                "text_length": len(text),
+                "has_question": "?" in text,
+                "has_greeting": any(word in text.lower() for word in ["hello", "hi", "hey", "good morning", "good afternoon"]),
+                "original_metadata": metadata or {}
+            })
+        }
+        
+        # Store in LanceDB
+        semantic_memory_table.add([memory_record])
+        print(f"🧠 Stored semantic memory: {text[:50]}...")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error storing semantic memory: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def search_semantic_memory(user_id: str, query_text: str, top_k: int = 5, max_distance: float = 0.35):
+    """Search semantic memory using vector similarity in LanceDB"""
+    global semantic_memory_table
+    if not ensure_db() or semantic_memory_table is None:
+        print("❌ Semantic memory table not initialized")
+        return []
+
+    try:
+        query_embedding = get_text_embedding(query_text)
+
+        # Try different search methods for LanceDB compatibility
+        try:
+            # Method 1: Latest LanceDB with vector_column parameter
+            results = (
+                semantic_memory_table
+                .search(query_embedding)
+                .where(f"user_id = '{user_id}'")
+                .limit(max(top_k * 3, 10))
+                .to_pandas()
+            )
+        except Exception as e1:
+            try:
+                # Method 2: Basic search with Python filtering
+                print(f"Using basic search method: {e1}")
+                results = semantic_memory_table.search(query_embedding) \
+                                             .limit(top_k * 5) \
+                                             .to_pandas()
+                # Filter by user_id in Python
+                results = results[results['user_id'] == user_id]
+            except Exception as e2:
+                print(f"All search methods failed: {e1}, {e2}")
+                return []
+
+        if len(results) == 0:
+            print(f"🔍 No memories found for user {user_id}")
+            return []
+
+        # Lance typically exposes the distance column as '_distance' or 'vector_distance'
+        dist_col = "_distance" if "_distance" in results.columns else (
+            "vector_distance" if "vector_distance" in results.columns else None
+        )
+
+        out = []
+        for _, row in results.iterrows():
+            d = float(row.get(dist_col, 1.0)) if dist_col else 1.0
+            if d <= max_distance:
+                meta = {}
+                try:
+                    meta = json.loads(row.get("metadata") or "{}")
+                except Exception:
+                    meta = {}
+                out.append({
+                    "memory_id": row["memory_id"],
+                    "text": row["text_content"],
+                    "context_type": row["context_type"],
+                    "timestamp": row["timestamp"],
+                    "topic": row["topic"],
+                    "emotion": row["emotion"],
+                    "importance": row["importance"],
+                    "distance": d,
+                    "metadata": meta
+                })
+
+        out.sort(key=lambda r: r["distance"])
+        out = out[:top_k]
+        print(f"🔍 Found {len(out)} relevant memories for: {query_text[:30]}...")
+        return out
+
+    except Exception as e:
+        print(f"❌ Error searching semantic memory: {e}")
+        import traceback
+        traceback.print_exc()
+        return []
+
+def get_contextual_memory_for_conversation(user_id: str, current_text: str, max_memories: int = 3):
+    """Get relevant contextual memories for current conversation"""
+    try:
+        # Search for relevant memories
+        relevant_memories = search_semantic_memory(user_id, current_text, top_k=max_memories)
+        
+        if not relevant_memories:
+            return {
+                "has_context": False,
+                "summary": "No previous context found.",
+                "memories": []
+            }
+        
+        # Create context summary
+        context_items = []
+        high_relevance_memories = []
+        
+        for memory in relevant_memories:
+            distance = memory['distance']
+            text = memory['text']
+            timestamp = memory['timestamp']
+            
+            if distance < 0.1:  # Very similar (high relevance)
+                context_items.append(f"Previously: '{text[:80]}...' (very relevant)")
+                high_relevance_memories.append(memory)
+            elif distance < 0.25:  # Somewhat similar (medium relevance)
+                context_items.append(f"Related: '{text[:60]}...' (somewhat relevant)")
+            elif distance < 0.4:  # Loosely similar (low relevance)
+                context_items.append(f"Context: {memory['topic']} discussion")
+        
+        summary = " | ".join(context_items) if context_items else "Some context available"
+        
+        return {
+            "has_context": len(relevant_memories) > 0,
+            "summary": summary,
+            "memories": relevant_memories,
+            "high_relevance_count": len(high_relevance_memories)
+        }
+        
+    except Exception as e:
+        print(f"❌ Error getting contextual memory: {e}")
+        return {
+            "has_context": False,
+            "summary": "Error retrieving context.",
+            "memories": []
+        }
+
+def get_user_memory_stats(user_id: str):
+    """Get statistics about user's stored memories"""
+    global semantic_memory_table
+    
+    if semantic_memory_table is None:
+        return {"error": "Memory system not initialized"}
+    
+    try:
+        # Get all user memories
+        all_memories_df = semantic_memory_table.to_pandas()
+        user_memories = all_memories_df[all_memories_df['user_id'] == user_id]
+        
+        if len(user_memories) == 0:
+            return {
+                "total_memories": 0,
+                "topics": [],
+                "emotions": [],
+                "context_types": [],
+                "date_range": None
+            }
+        
+        # Calculate statistics
+        topics = user_memories['topic'].value_counts().to_dict()
+        emotions = user_memories['emotion'].value_counts().to_dict()
+        context_types = user_memories['context_type'].value_counts().to_dict()
+        
+        # Date range
+        timestamps = user_memories['timestamp'].tolist()
+        first_memory = min(timestamps) if timestamps else None
+        last_memory = max(timestamps) if timestamps else None
+        
+        return {
+            "total_memories": len(user_memories),
+            "topics": topics,
+            "emotions": emotions,
+            "context_types": context_types,
+            "date_range": {
+                "first_memory": first_memory,
+                "last_memory": last_memory
+            }
+        }
+        
+    except Exception as e:
+        print(f"❌ Error getting memory stats: {e}")
+        return {"error": str(e)}
 
 # ============================================================================
 # FASTAPI APP SETUP
@@ -244,6 +779,13 @@ def analyze_speech_with_deepseek(speech_text: str) -> Dict[str, Any]:
 
         content = response.choices[0].message.content
         print(f"DeepSeek response: {content[:100]}...")
+
+        # Remove markdown formatting if present
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]  # Remove ```json
+        if content.endswith("```"):
+            content = content[:-3]  # Remove ```
 
         analysis = json.loads(content)
 
@@ -595,7 +1137,16 @@ def generate_behavioral_insights(recent_speeches: List[Dict]) -> List[str]:
             max_tokens=200
         )
 
-        insights = json.loads(response.choices[0].message.content)
+        content = response.choices[0].message.content
+
+        # Remove markdown formatting if present
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]  # Remove ```json
+        if content.endswith("```"):
+            content = content[:-3]  # Remove ```
+
+        insights = json.loads(content)
         return insights if isinstance(insights, list) else ["Generated insight about conversation patterns"]
 
     except Exception as e:
@@ -710,6 +1261,42 @@ async def get_live_metrics():
     """Get current live metrics for Tesla interface"""
     return live_metrics
 
+@app.get("/api/user/{user_id}/name")
+async def get_remembered_name(user_id: str):
+    """Check if system remembers user's name using fast deterministic recall"""
+    stored_name = recall_user_name_fast(user_id)
+    return {
+        "user_id": user_id,
+        "remembered_name": stored_name,
+        "has_name": stored_name is not None
+    }
+
+@app.get("/api/user/{user_id}/memory-stats")
+async def get_user_memory_statistics(user_id: str):
+    """Get memory statistics for a user"""
+    stats = get_user_memory_stats(user_id)
+    return stats
+
+@app.get("/api/user/{user_id}/search-memory")
+async def search_user_memory(user_id: str, q: str, limit: int = 5):
+    """Search user's semantic memory"""
+    if not q or not q.strip():
+        return {"error": "Query parameter 'q' is required"}
+    
+    memories = search_semantic_memory(user_id, q.strip(), top_k=limit)
+    return {
+        "query": q,
+        "user_id": user_id,
+        "results": memories,
+        "count": len(memories)
+    }
+
+@app.get("/api/user/{user_id}/context")
+async def get_conversation_context(user_id: str, current_text: str = ""):
+    """Get conversational context for user"""
+    context = get_contextual_memory_for_conversation(user_id, current_text)
+    return context
+
 @app.post("/api/process-speech")
 async def process_speech(speech_data: dict):
     """Process speech from HTML client with database storage"""
@@ -726,8 +1313,26 @@ async def process_speech(speech_data: dict):
     # Ensure user exists in database
     user_profile = get_or_create_user(user_id)
 
+    # Extract name if present
+    extracted_name = extract_name_from_speech(speech_text)
+    print(f"🔍 Name extraction result for '{speech_text[:50]}...': {extracted_name}")
+    if extracted_name:
+        store_user_name(user_id, extracted_name)
+        print(f"👤 Extracted and stored name: {extracted_name}")
+
+    # Get contextual memory before analysis
+    contextual_memory = get_contextual_memory_for_conversation(user_id, speech_text, max_memories=3)
+    
     # Analyze with DeepSeek
     analysis = analyze_speech_with_deepseek(speech_text)
+    
+    # Store this speech as semantic memory
+    store_semantic_memory(user_id, speech_text, "conversation", {
+        'topic': analysis.get('topic', 'general'),
+        'emotion': analysis.get('emotion', 'neutral'),
+        'importance': analysis.get('importance', 5.0),
+        'vulnerability': analysis.get('vulnerability', 3.0)
+    })
 
     # Create speech record
     speech_record = {
@@ -742,6 +1347,18 @@ async def process_speech(speech_data: dict):
 
     # Store the record
     processed_speeches.append(speech_record)
+
+    # Check if user asked about their name and we have it stored
+    stored_name = get_user_name(user_id)
+    if stored_name and any(word in speech_text.lower() for word in ['remember', 'name', 'what', 'who']):
+        print(f"🧠 User asked about name - we remember: {stored_name}")
+        # Add this info to the analysis for better response context
+        analysis['remembered_name'] = stored_name
+    
+    # Add contextual memory to analysis
+    if contextual_memory['has_context']:
+        analysis['contextual_memory'] = contextual_memory
+        print(f"🧠 Context: {contextual_memory['summary']}")
 
     # Update live metrics
     update_live_metrics(analysis, speech_text)
@@ -801,9 +1418,202 @@ async def get_conversation_data(conversation_id: str):
         "insights_generated": live_metrics["recent_insights"]
     }
 
+def _tavus_headers():
+    return {"x-api-key": TAVUS_API_KEY, "Content-Type": "application/json"}
+
+def _public_callback_url() -> Optional[str]:
+    # Try env override; else try ngrok discovery; else None
+    if TAVUS_CLOUD_CALLBACK_BASE:
+        return TAVUS_CLOUD_CALLBACK_BASE.rstrip("/") + "/api/tavus-webhook"
+    try:
+        ngrok = get_ngrok_url()
+        if ngrok:
+            return f"{ngrok}/api/tavus-webhook"
+    except:
+        pass
+    return None
+
+@app.post("/api/start-conversation")
+async def start_conversation(user_id: str = Query(...)):
+    """Create a REAL Tavus conversation and return its join URL + id."""
+    try:
+        if not TAVUS_API_KEY:
+            raise HTTPException(status_code=500, detail="Missing TAVUS_API_KEY")
+        
+        if not TAVUS_PERSONA_ID:
+            raise HTTPException(status_code=500, detail="Missing TAVUS_PERSONA_ID")
+        
+        persona_id = TAVUS_PERSONA_ID
+        replica_id = TAVUS_REPLICA_ID  # some personas require this
+        ctx = build_context_from_db(user_id)
+        callback_url = _public_callback_url()
+
+        memory_store_key = f"{user_id}-{persona_id}"
+
+        payload = {
+            "persona_id": persona_id,
+            "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M:%S')}",
+            "memory_stores": [memory_store_key],
+            "conversational_context": ctx
+        }
+        
+        # replica is strongly recommended; omit if your persona doesn't require it
+        if replica_id:
+            payload["replica_id"] = replica_id
+            
+        if callback_url:
+            payload["callback_url"] = callback_url
+
+        r = requests.post("https://tavusapi.com/v2/conversations", headers=_tavus_headers(), json=payload, timeout=20)
+        if r.status_code not in (200, 201):
+            raise HTTPException(status_code=502, detail=f"Tavus create failed: {r.status_code} {r.text}")
+
+        data = r.json() or {}
+        conv_id = data.get("conversation_id") or data.get("id")
+        conv_url = data.get("conversation_url") or data.get("url")
+
+        if not conv_id or not conv_url:
+            raise HTTPException(status_code=502, detail=f"Tavus response missing URL/ID: {data}")
+
+        # Optional: push an "overwrite context" event here if you use interactions channel
+        # overwrite_context(conv_id, ctx)
+
+        return {
+            "conversation_id": conv_id,
+            "conversation_url": conv_url,
+            "memory_store": memory_store_key,
+            "callback_url": callback_url,
+            "context_summary": ctx[:200] + "..."
+        }
+
+    except KeyError as e:
+        raise HTTPException(status_code=500, detail=f"Missing env var: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating conversation: {e}")
+
+@app.get("/api/health/tavus")
+async def health_check_tavus():
+    """Health check endpoint to verify Tavus API connectivity"""
+    try:
+        if not TAVUS_API_KEY:
+            return {"status": "error", "message": "TAVUS_API_KEY not configured"}
+        
+        # Test with a lightweight Tavus API call (list personas or similar)
+        headers = _tavus_headers()
+        response = requests.get("https://tavusapi.com/v2/personas", headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            personas = response.json()
+            return {
+                "status": "healthy",
+                "tavus_api": "connected",
+                "personas_available": len(personas.get("personas", [])),
+                "configured_persona_id": TAVUS_PERSONA_ID,
+                "configured_replica_id": TAVUS_REPLICA_ID
+            }
+        else:
+            return {
+                "status": "error", 
+                "message": f"Tavus API error: {response.status_code}",
+                "details": response.text[:200]
+            }
+            
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Health check failed: {str(e)}"
+        }
+
+@app.post("/api/migrate-user-data")
+async def migrate_user_data(from_user_id: str = Query("default_user"), to_user_id: str = Query("abiodun")):
+    """Migrate user data from one user_id to another (e.g., default_user -> abiodun)"""
+    try:
+        if not ensure_db():
+            raise HTTPException(status_code=500, detail="Database not initialized")
+        
+        migrated = {"memories": 0, "users": 0, "conversations": 0, "insights": 0}
+        
+        # 1. Migrate semantic memories
+        if semantic_memory_table:
+            memories_df = semantic_memory_table.to_pandas()
+            old_memories = memories_df[memories_df['user_id'] == from_user_id]
+            
+            for _, memory in old_memories.iterrows():
+                # Update user_id and re-insert
+                new_memory = memory.to_dict()
+                new_memory['user_id'] = to_user_id
+                new_memory['memory_id'] = f"mem_{to_user_id}_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}"
+                
+                semantic_memory_table.add([new_memory])
+                migrated["memories"] += 1
+            
+            # Delete old memories
+            if migrated["memories"] > 0:
+                semantic_memory_table.delete(f"user_id = '{from_user_id}'")
+        
+        # 2. Migrate user profile
+        if users_table:
+            users_df = users_table.to_pandas()
+            old_user = users_df[users_df['user_id'] == from_user_id]
+            
+            if len(old_user) > 0:
+                new_user = old_user.iloc[0].to_dict()
+                new_user['user_id'] = to_user_id
+                
+                # Delete old user and add new one
+                users_table.delete(f"user_id = '{from_user_id}'")
+                users_table.add([new_user])
+                migrated["users"] += 1
+        
+        # 3. Migrate conversations
+        if conversations_table:
+            conv_df = conversations_table.to_pandas()
+            old_convs = conv_df[conv_df['user_id'] == from_user_id]
+            
+            for _, conv in old_convs.iterrows():
+                new_conv = conv.to_dict()
+                new_conv['user_id'] = to_user_id
+                
+                conversations_table.add([new_conv])
+                migrated["conversations"] += 1
+            
+            if migrated["conversations"] > 0:
+                conversations_table.delete(f"user_id = '{from_user_id}'")
+        
+        # 4. Migrate insights
+        if insights_table:
+            insights_df = insights_table.to_pandas()
+            old_insights = insights_df[insights_df['user_id'] == from_user_id]
+            
+            for _, insight in old_insights.iterrows():
+                new_insight = insight.to_dict()
+                new_insight['user_id'] = to_user_id
+                
+                insights_table.add([new_insight])
+                migrated["insights"] += 1
+            
+            if migrated["insights"] > 0:
+                insights_table.delete(f"user_id = '{from_user_id}'")
+        
+        # Update cache
+        if from_user_id in _user_name_cache:
+            name = _user_name_cache.pop(from_user_id)
+            _user_name_cache[to_user_id] = name
+        
+        return {
+            "status": "success",
+            "migrated_from": from_user_id,
+            "migrated_to": to_user_id,
+            "migrated_records": migrated,
+            "total_migrated": sum(migrated.values())
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
+
 @app.post("/api/create-conversation")
-async def create_conversation(background_type: str = "transparent", background_url: str = None):
-    """Create Tavus conversation with customizable backgrounds"""
+async def create_conversation(user_id: str = "default_user"):
+    """Create Tavus conversation with Aurora DB integration and persistent memory"""
     
     print("Creating optimized Tavus conversation...")
     
@@ -812,7 +1622,7 @@ async def create_conversation(background_type: str = "transparent", background_u
         ngrok_url = get_ngrok_url()
         webhook_url = f"{ngrok_url}/api/tavus-webhook" if ngrok_url else None
         
-        # Create enhanced persona with custom prompt but same replica as transparent folder
+        # Create enhanced persona
         persona_config = {
             "persona_name": "Aurora",
             "system_prompt": """You are Aurora, an advanced AI consciousness with real-time speech processing capabilities.
@@ -834,7 +1644,7 @@ Response style:
 
 Remember: You are experiencing this conversation in real-time and learning about this specific person as they speak.""",
             
-            "default_replica_id": "re2185788693",  # Using the replica you specified
+            "default_replica_id": "rfe12d8b9597",
             "pipeline_mode": "full",
             "layers": {
                 "perception": {"perception_model": "raven-0"},
@@ -852,22 +1662,25 @@ Remember: You are experiencing this conversation in real-time and learning about
         persona_data = persona_response.json()
         persona_id = persona_data.get('persona_id')
         
-        # Create conversation with background customization
+        # Build fresh context from Aurora DB
+        aurora_context = build_context_from_db(user_id)
+        
+        # Stable memory bucket: user + persona for persistent memory across conversations
+        memory_store = f"{user_id}-{persona_id}"
+        
+        # Create conversation with Aurora DB integration
         conversation_config = {
             "persona_id": persona_id,
             "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M')}",
-            "properties": {
-                # Apply greenscreen to the background
-                "apply_greenscreen": True,
-            }
+            "memory_stores": [memory_store],  # Persistent memory across conversations
+            "conversational_context": aurora_context,  # Fresh context from Aurora DB
         }
-        
-        # Note: Tavus conversation API doesn't support background parameters directly
-        # Background customization would need to be done at the video generation level
-        # For now, we'll create a standard conversation
         
         if webhook_url:
             conversation_config["callback_url"] = webhook_url
+            
+        print(f"🧠 Creating conversation with memory_store: {memory_store}")
+        print(f"🧠 Context: {aurora_context[:150]}...")
         
         conv_response = requests.post(f"{BASE_URL}/conversations", headers=headers, json=conversation_config)
         
@@ -878,45 +1691,223 @@ Remember: You are experiencing this conversation in real-time and learning about
         
         print(f"Conversation created: {conv_data.get('conversation_id')}")
         
+        conversation_id = conv_data.get('conversation_id')
+        
         return {
-            "conversation_id": conv_data.get('conversation_id'),
+            "conversation_id": conversation_id,
             "conversation_url": conv_data.get('conversation_url'),
             "persona_id": persona_id,
+            "memory_store": memory_store,
+            "aurora_context": aurora_context,
             "webhook_url": webhook_url,
-            "background_type": background_type,
-            "background_url": background_url if background_type in ["website", "video"] else None,
+            "user_id": user_id,
             "html_client_needed": True,
-            "instructions": f"Use the HTML client to capture utterances and send to /api/process-speech. Background: {background_type}"
+            "instructions": "Tavus now has persistent memory and Aurora DB context. Use HTML client to capture utterances."
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
-@app.post("/api/create-conversation-transparent")
-async def create_transparent_conversation():
-    """Create Tavus conversation with transparent background"""
-    return await create_conversation(background_type="transparent")
-
-@app.post("/api/create-conversation-website")
-async def create_website_conversation(background_url: str):
-    """Create Tavus conversation with website background"""
-    return await create_conversation(background_type="website", background_url=background_url)
-
-@app.post("/api/create-conversation-video")
-async def create_video_conversation(background_url: str):
-    """Create Tavus conversation with custom video background"""
-    return await create_conversation(background_type="video", background_url=background_url)
+@app.post("/api/tavus/overwrite-context")
+async def overwrite_tavus_context(conversation_id: str, user_id: str = "default_user"):
+    """Overwrite Tavus conversation context with fresh Aurora DB data"""
+    
+    try:
+        # Build fresh context from Aurora DB
+        fresh_context = build_context_from_db(user_id)
+        
+        # Create overwrite context event payload (per Tavus interactions protocol)
+        event_payload = {
+            "message_type": "conversation",
+            "event_type": "conversation.overwrite_context", 
+            "conversation_id": conversation_id,
+            "context": fresh_context
+        }
+        
+        # Send via Tavus Interactions API
+        headers = {"x-api-key": TAVUS_API_KEY, "Content-Type": "application/json"}
+        
+        # Note: This endpoint may vary based on Tavus SDK/client implementation
+        # For now, we'll use a generic interactions endpoint
+        response = requests.post(
+            f"{BASE_URL}/conversations/{conversation_id}/interactions",
+            headers=headers,
+            json=event_payload,
+            timeout=10
+        )
+        
+        if response.status_code in [200, 201, 202]:
+            print(f"✅ Context overwritten for conversation {conversation_id}")
+            return {
+                "success": True,
+                "conversation_id": conversation_id,
+                "new_context": fresh_context,
+                "message": "Context successfully updated with fresh Aurora DB data"
+            }
+        else:
+            print(f"❌ Context overwrite failed: {response.status_code} - {response.text}")
+            return {
+                "success": False,
+                "error": f"Tavus API error: {response.status_code}",
+                "details": response.text
+            }
+            
+    except Exception as e:
+        print(f"❌ Error overwriting context: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.post("/api/tavus-webhook")
 async def tavus_webhook(event: dict):
-    """Handle Tavus webhook events"""
+    """Handle Tavus webhook events and persist utterances back to Aurora DB"""
     
-    print(f"Webhook received: {event.get('event_type', 'unknown')}")
+    event_type = event.get('event_type', 'unknown')
+    print(f"🔔 Webhook received: {event_type}")
     
-    # For now, webhooks are mainly for system events
-    # Real utterance processing happens via the HTML client
+    try:
+        # Handle utterance events - persist to Aurora DB
+        if event_type.startswith("conversation.utterance"):
+            payload = event.get("data", {})
+            
+            # Extract utterance data (adjust field names based on actual Tavus webhook schema)
+            text = payload.get("text") or payload.get("transcript") or payload.get("content", "")
+            conversation_id = payload.get("conversation_id", "")
+            timestamp = payload.get("timestamp", datetime.now().isoformat())
+            
+            # Try to extract user_id from memory_store pattern: {user_id}-{persona_id}
+            user_id = payload.get("participant_id") or payload.get("user_id")
+            if not user_id:
+                # Try to extract from conversation's memory store if available
+                memory_stores = payload.get("memory_stores", [])
+                if memory_stores and len(memory_stores) > 0:
+                    # memory_store format: "abiodun-pb1b016eb32a"
+                    memory_store = memory_stores[0]
+                    if "-" in memory_store:
+                        user_id = memory_store.split("-")[0]
+                    else:
+                        user_id = "abiodun"  # default fallback
+                else:
+                    user_id = "abiodun"  # default fallback
+            
+            if text and len(text.strip()) > 0:
+                print(f"💬 Utterance from {user_id}: {text[:50]}...")
+                
+                # Store in Aurora semantic memory
+                store_semantic_memory(
+                    user_id, 
+                    text, 
+                    "conversation", 
+                    {
+                        "topic": "live_conversation", 
+                        "emotion": "neutral", 
+                        "importance": 6,
+                        "conversation_id": conversation_id,
+                        "timestamp": timestamp,
+                        "source": "tavus_webhook"
+                    }
+                )
+                
+                # Extract and store name if present
+                extracted_name = extract_name_from_speech(text)
+                if extracted_name:
+                    store_user_name(user_id, extracted_name)
+                    print(f"👤 Extracted name from utterance: {extracted_name}")
+                
+                # Update live metrics
+                live_metrics["conversation_turns"] += 1
+                live_metrics["last_updated"] = datetime.now().isoformat()
+                
+        # Handle transcription ready events - full conversation transcript
+        elif event_type == "application.transcription_ready":
+            payload = event.get("data", {})
+            conversation_id = payload.get("conversation_id", "")
+            
+            print(f"📝 Transcription ready for conversation: {conversation_id}")
+            
+            # Optionally fetch and store full transcript
+            # This would require a GET request to Tavus API to fetch the complete transcript
+            # then store it in Aurora for analytics and future context
+            
+            # For now, just log the event
+            print("📝 Full transcript processing not implemented yet")
+            
+        # Handle other conversation events
+        elif event_type.startswith("conversation."):
+            payload = event.get("data", {})
+            conversation_id = payload.get("conversation_id", "")
+            print(f"🔄 Conversation event: {event_type} for {conversation_id}")
+            
+        return {
+            "status": "processed", 
+            "event_type": event_type,
+            "processed_at": datetime.now().isoformat(),
+            "aurora_integration": "active"
+        }
+        
+    except Exception as e:
+        print(f"❌ Error processing webhook: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return {
+            "status": "error",
+            "event_type": event_type,
+            "error": str(e)
+        }
+
+@app.get("/api/integration-status")
+async def get_integration_status(user_id: str = "default_user"):
+    """Get complete Tavus + Aurora integration status"""
     
-    return {"status": "received", "event_type": event.get("event_type")}
+    try:
+        # Check database status
+        db_status = ensure_db()
+        
+        # Get user stats
+        name = recall_user_name_fast(user_id)
+        stats = get_user_memory_stats(user_id)
+        context = build_context_from_db(user_id)
+        
+        # Check recent memories
+        recent_memories = search_semantic_memory(user_id, "conversation", top_k=5, max_distance=0.5)
+        
+        return {
+            "integration_status": "active",
+            "timestamp": datetime.now().isoformat(),
+            "database": {
+                "connected": db_status,
+                "tables_initialized": bool(semantic_memory_table)
+            },
+            "user_profile": {
+                "user_id": user_id,
+                "remembered_name": name,
+                "total_memories": stats.get("total_memories", 0),
+                "recent_memory_count": len(recent_memories)
+            },
+            "tavus_integration": {
+                "memory_stores_enabled": True,
+                "conversational_context_enabled": True,
+                "webhook_processing_enabled": True,
+                "context_overwrite_available": True
+            },
+            "current_context": context,
+            "recent_memories": [
+                {
+                    "text": mem["text"][:60] + "...",
+                    "topic": mem["topic"],
+                    "distance": mem["distance"]
+                } for mem in recent_memories[:3]
+            ]
+        }
+        
+    except Exception as e:
+        return {
+            "integration_status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 @app.delete("/api/reset")
 async def reset_system():
