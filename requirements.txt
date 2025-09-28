@@ -8,5 +8,6 @@ tiktoken
 openai
 pydantic
 pydantic-settings
+requests
 python-dotenv
 pytest
