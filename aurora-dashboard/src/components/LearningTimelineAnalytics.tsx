@@ -32,6 +32,7 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
     memories: 0,
     learning_score: 0
   });
+  const [backendStatus, setBackendStatus] = useState('checking');
 
   useEffect(() => {
     const fetchLearningData = async () => {
@@ -39,15 +40,18 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
         console.log(`🔍 Fetching real data for user: ${userId}`);
 
         // Check if backend is available first
-        const healthCheck = await fetch(`http://localhost:8000/api/health`, {
+        const healthCheck = await fetch(`http://localhost:8000/api/metrics`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(3000)
         });
 
         if (!healthCheck.ok) {
+          setBackendStatus('offline');
           throw new Error('Backend not responding');
         }
+        
+        setBackendStatus('online');
 
         // Fetch user profile with conversations and insights
         const userResponse = await fetch(`http://localhost:8000/api/users/${userId}`, {
@@ -89,6 +93,12 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
           // Convert real data to timeline format
           const timeline = convertRealDataToTimeline(userData, memoryStats, speechesData);
           const stats = extractRealStats(userData, memoryStats, speechesData);
+
+          console.log('📊 Real analytics data loaded:', {
+            timelineEvents: timeline.length,
+            stats: stats,
+            userData: userData
+          });
 
           setEvents(timeline);
           setTotalStats(stats);
@@ -405,6 +415,23 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
             </div>
             <div className="text-lg font-mono text-white">{totalStats.learning_score.toFixed(1)}%</div>
           </div>
+        </div>
+      </div>
+
+      {/* Backend Status */}
+      <div className="mb-4">
+        <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+          backendStatus === 'online' 
+            ? 'bg-green-900/20 text-green-400 border border-green-500/30' 
+            : backendStatus === 'offline'
+            ? 'bg-red-900/20 text-red-400 border border-red-500/30'
+            : 'bg-yellow-900/20 text-yellow-400 border border-yellow-500/30'
+        }`}>
+          <div className={`w-2 h-2 rounded-full mr-2 ${
+            backendStatus === 'online' ? 'bg-green-400' : 
+            backendStatus === 'offline' ? 'bg-red-400' : 'bg-yellow-400'
+          }`}></div>
+          Backend: {backendStatus === 'online' ? 'Connected' : backendStatus === 'offline' ? 'Disconnected' : 'Checking...'}
         </div>
       </div>
 
