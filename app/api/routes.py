@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from app.callbacks import CallbackResult, WebhookVerificationError
 from app.memory.store import MemoryRecord, MemorySpeaker
@@ -123,6 +123,59 @@ async def metrics(state: AppState = Depends(get_state)) -> dict:
     return {
         "metrics": snapshot.to_dict(),
         "hot_index": hot_metrics.to_json(),
+    }
+
+
+@router.post("/vision/analyze")
+async def vision_analyze(
+    payload: dict = Body(...),
+    state: AppState = Depends(get_state),
+) -> dict:
+    prompt = (payload.get("prompt") or "Describe this image.").strip()
+    image_url = (payload.get("image_url") or "").strip()
+    image_base64 = (payload.get("image_base64") or "").strip()
+    max_tokens_raw = payload.get("max_tokens")
+
+    if image_url and image_base64:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="provide either image_url or image_base64")
+    if not image_url and not image_base64:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="image input is required")
+
+    if max_tokens_raw is not None:
+        try:
+            max_tokens = int(max_tokens_raw)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="max_tokens must be an integer") from exc
+        if max_tokens <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="max_tokens must be positive")
+    else:
+        max_tokens = None
+
+    if image_base64:
+        reference = image_base64 if image_base64.startswith("data:") else f"data:image/jpeg;base64,{image_base64}"
+        ref_type = "base64"
+    else:
+        reference = image_url
+        ref_type = "url"
+
+    try:
+        result = state.vision.describe_image(prompt or "Describe this image.", reference, max_tokens=max_tokens)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Herdora vision request failed")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="vision model error") from exc
+
+    return {
+        "model": result.model,
+        "prompt": prompt,
+        "image_type": ref_type,
+        "text": result.text,
+        "usage": {
+            "prompt_tokens": result.prompt_tokens,
+            "completion_tokens": result.completion_tokens,
+            "total_tokens": result.total_tokens,
+        },
     }
 
 

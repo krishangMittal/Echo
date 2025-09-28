@@ -6,6 +6,9 @@ hnswlib
 numpy
 tiktoken
 openai
+httpx
+sounddevice
+opencv-python
 pydantic
 pydantic-settings
 python-dotenv

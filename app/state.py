@@ -9,6 +9,7 @@ from app.config import Settings
 from app.memory.index import HotIndexManager
 from app.memory.store import MemoryStore
 from app.metrics import MetricsRegistry
+from app.services.herdora_vision import HerdoraVisionClient
 from app.services.openai_client import OpenAIEmbeddingClient
 from app.text.chunker import TextChunker
 
@@ -22,6 +23,7 @@ class AppState:
     hot_index: HotIndexManager
     chunker: TextChunker
     embeddings: OpenAIEmbeddingClient
+    vision: HerdoraVisionClient
     callback_processor: CallbackProcessor
     metrics: MetricsRegistry
 
@@ -30,6 +32,7 @@ class AppState:
         settings = Settings()
         chunker = TextChunker(settings=settings)
         embeddings = OpenAIEmbeddingClient(settings=settings)
+        vision = HerdoraVisionClient(settings=settings)
         memory_store = MemoryStore(settings=settings)
         hot_index = HotIndexManager(memory_store, settings=settings)
         try:
@@ -50,6 +53,7 @@ class AppState:
             hot_index=hot_index,
             chunker=chunker,
             embeddings=embeddings,
+            vision=vision,
             callback_processor=callback_processor,
             metrics=metrics,
         )

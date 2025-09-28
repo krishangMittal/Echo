@@ -22,6 +22,13 @@ FastAPI service that ingests webhook payloads, persists conversational memory in
 pytest
 ```
 
+## Vision & Voice Demos
+
+- Herdora vision captioning: `python scripts/test_qwen_vision.py --image-url <url>` or `--image-path <file>` with `HERDORA_API_KEY`.
+- Webcam caption + voice: `python scripts/webcam_vision_voice.py` to grab a frame from your camera and hear the caption.
+- Caption + voice: `python scripts/vision_voice.py --image-path <file>` to have ElevenLabs read the Qwen caption aloud.
+- Microphone loop: `python scripts/voice_loop.py --loop` to record, transcribe with Deepgram, and play back via ElevenLabs. Requires `DEEPGRAM_API_KEY` and `ELEVENLABS_API_KEY`.
+
 ## Run The Server
 
 ```bash

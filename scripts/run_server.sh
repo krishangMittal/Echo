@@ -6,4 +6,8 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 export PYTHONPATH="${PYTHONPATH:-${PROJECT_ROOT}}"
 cd "${PROJECT_ROOT}"
 
+# Activate Python 3.10.0 environment
+eval "$(pyenv init -)"
+pyenv shell 3.10.0
+
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload "$@"

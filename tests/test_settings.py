@@ -13,3 +13,6 @@ def test_settings_defaults():
     settings = Settings()
     assert settings.embed_model == "text-embedding-3-small"
     assert settings.chunk_tokens > settings.chunk_overlap
+    assert settings.herdora_base_url == "https://pygmalion.herdora.com/v1"
+    assert settings.herdora_vision_model == "Qwen/Qwen3-VL-235B-A22B-Instruct"
+    assert settings.elevenlabs_voice_id == "21m00Tcm4TlvDq8ikWAM"

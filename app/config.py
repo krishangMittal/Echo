@@ -16,6 +16,15 @@ class Settings(BaseSettings):
 
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     ingest_webhook_secret: Optional[str] = Field(default=None, env="INGEST_WEBHOOK_SECRET")
+    herdora_api_key: Optional[str] = Field(default=None, env="HERDORA_API_KEY")
+    herdora_base_url: str = Field(default="https://pygmalion.herdora.com/v1", env="HERDORA_BASE_URL")
+    herdora_vision_model: str = Field(
+        default="Qwen/Qwen3-VL-235B-A22B-Instruct", env="HERDORA_VISION_MODEL"
+    )
+    herdora_max_tokens: int = Field(default=512, env="HERDORA_MAX_TOKENS")
+    deepgram_api_key: Optional[str] = Field(default=None, env="DEEPGRAM_API_KEY")
+    elevenlabs_api_key: Optional[str] = Field(default=None, env="ELEVENLABS_API_KEY")
+    elevenlabs_voice_id: str = Field(default="21m00Tcm4TlvDq8ikWAM", env="ELEVENLABS_VOICE_ID")
 
     lance_db_uri: str = Field(default="memory_db", env="LANCE_DB_URI")
     lance_table_name: str = Field(default="conversation_memory", env="LANCE_TABLE_NAME")
