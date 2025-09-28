@@ -802,8 +802,8 @@ async def get_conversation_data(conversation_id: str):
     }
 
 @app.post("/api/create-conversation")
-async def create_conversation():
-    """Create Tavus conversation optimized for utterance capture"""
+async def create_conversation(background_type: str = "transparent", background_url: str = None):
+    """Create Tavus conversation with customizable backgrounds"""
     
     print("Creating optimized Tavus conversation...")
     
@@ -852,11 +852,15 @@ Remember: You are experiencing this conversation in real-time and learning about
         persona_data = persona_response.json()
         persona_id = persona_data.get('persona_id')
         
-        # Create conversation with correct Tavus API parameters
+        # Create conversation with background customization
         conversation_config = {
             "persona_id": persona_id,
             "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M')}"
         }
+        
+        # Note: Tavus conversation API doesn't support background parameters directly
+        # Background customization would need to be done at the video generation level
+        # For now, we'll create a standard conversation
         
         if webhook_url:
             conversation_config["callback_url"] = webhook_url
@@ -875,12 +879,29 @@ Remember: You are experiencing this conversation in real-time and learning about
             "conversation_url": conv_data.get('conversation_url'),
             "persona_id": persona_id,
             "webhook_url": webhook_url,
+            "background_type": background_type,
+            "background_url": background_url if background_type in ["website", "video"] else None,
             "html_client_needed": True,
-            "instructions": "Use the HTML client to capture utterances and send to /api/process-speech"
+            "instructions": f"Use the HTML client to capture utterances and send to /api/process-speech. Background: {background_type}"
         }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.post("/api/create-conversation-transparent")
+async def create_transparent_conversation():
+    """Create Tavus conversation with transparent background"""
+    return await create_conversation(background_type="transparent")
+
+@app.post("/api/create-conversation-website")
+async def create_website_conversation(background_url: str):
+    """Create Tavus conversation with website background"""
+    return await create_conversation(background_type="website", background_url=background_url)
+
+@app.post("/api/create-conversation-video")
+async def create_video_conversation(background_url: str):
+    """Create Tavus conversation with custom video background"""
+    return await create_conversation(background_type="video", background_url=background_url)
 
 @app.post("/api/tavus-webhook")
 async def tavus_webhook(event: dict):

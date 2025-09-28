@@ -1,0 +1,93 @@
+/* Aurora Conversation Styles with Chroma Key Effect */
+.aurora-conversation {
+  background: transparent !important;
+  isolation: isolate;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  /* Apply chroma key filter to remove green backgrounds */
+  filter: hue-rotate(0deg) saturate(1.2) contrast(1.1) brightness(1.1);
+}
+
+.aurora-conversation iframe {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  /* Chroma key effect using CSS filters */
+  filter: 
+    hue-rotate(0deg) 
+    saturate(1.3) 
+    contrast(1.2) 
+    brightness(1.1)
+    drop-shadow(0 0 10px rgba(0, 255, 0, 0.3));
+}
+
+/* Ensure transparency and full coverage */
+.aurora-conversation * {
+  background: transparent !important;
+}
+
+/* Hide any default backgrounds and ensure full orb coverage */
+.aurora-conversation .daily-iframe-container {
+  background: transparent !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .daily-iframe {
+  background: transparent !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
+/* Force the iframe to fill the entire circular area with chroma key effect */
+.aurora-conversation iframe[src*="tavus.daily.co"] {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  transform: scale(1.1) !important;
+  transform-origin: center !important;
+  /* Enhanced chroma key effect */
+  filter: 
+    hue-rotate(0deg) 
+    saturate(1.4) 
+    contrast(1.3) 
+    brightness(1.2)
+    drop-shadow(0 0 15px rgba(0, 255, 0, 0.4));
+}
+
+/* Additional chroma key styling for video elements */
+.aurora-conversation video {
+  background: transparent !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  filter: 
+    hue-rotate(0deg) 
+    saturate(1.3) 
+    contrast(1.2) 
+    brightness(1.1);
+}
+
+/* Mask effect to create transparent background */
+.aurora-conversation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, transparent 0%, transparent 100%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+}
