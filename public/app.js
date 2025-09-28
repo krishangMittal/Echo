@@ -13,28 +13,159 @@ const conversation = [];
 let pendingReplyEl = null;
 
 const emotionStates = {
-  0: { id: 0, name: 'joy', color: 'yellow' },
-  1: { id: 1, name: 'anger', color: 'red' },
-  2: { id: 2, name: 'fear', color: 'purple' },
-  3: { id: 3, name: 'disgust', color: 'green' },
-  4: { id: 4, name: 'sadness', color: 'blue' }
+  0: {
+    id: 0,
+    name: 'joy',
+    color: 'yellow',
+    palette: {
+      core: 'rgba(254, 240, 138, 0.95)',
+      halo: 'rgba(252, 211, 77, 0.4)',
+      glowOne: 'rgba(253, 224, 71, 0.75)',
+      glowTwo: 'rgba(250, 204, 21, 0.45)',
+      glowThree: 'rgba(250, 204, 21, 0.55)',
+      glowFour: 'rgba(253, 224, 71, 0.35)'
+    }
+  },
+  1: {
+    id: 1,
+    name: 'anger',
+    color: 'red',
+    palette: {
+      core: 'rgba(248, 113, 113, 0.78)',
+      halo: 'rgba(239, 68, 68, 0.4)',
+      glowOne: 'rgba(239, 68, 68, 0.6)',
+      glowTwo: 'rgba(220, 38, 38, 0.4)',
+      glowThree: 'rgba(252, 165, 165, 0.42)',
+      glowFour: 'rgba(248, 113, 113, 0.3)'
+    }
+  },
+  2: {
+    id: 2,
+    name: 'fear',
+    color: 'purple',
+    palette: {
+      core: 'rgba(196, 181, 253, 0.82)',
+      halo: 'rgba(167, 139, 250, 0.35)',
+      glowOne: 'rgba(167, 139, 250, 0.55)',
+      glowTwo: 'rgba(139, 92, 246, 0.35)',
+      glowThree: 'rgba(139, 92, 246, 0.45)',
+      glowFour: 'rgba(196, 181, 253, 0.28)'
+    }
+  },
+  3: {
+    id: 3,
+    name: 'disgust',
+    color: 'green',
+    palette: {
+      core: 'rgba(167, 243, 208, 0.82)',
+      halo: 'rgba(110, 231, 183, 0.35)',
+      glowOne: 'rgba(110, 231, 183, 0.5)',
+      glowTwo: 'rgba(52, 211, 153, 0.3)',
+      glowThree: 'rgba(52, 211, 153, 0.4)',
+      glowFour: 'rgba(167, 243, 208, 0.25)'
+    }
+  },
+  4: {
+    id: 4,
+    name: 'sadness',
+    color: 'blue',
+    palette: {
+      core: 'rgba(147, 197, 253, 0.82)',
+      halo: 'rgba(96, 165, 250, 0.35)',
+      glowOne: 'rgba(96, 165, 250, 0.52)',
+      glowTwo: 'rgba(59, 130, 246, 0.32)',
+      glowThree: 'rgba(59, 130, 246, 0.42)',
+      glowFour: 'rgba(147, 197, 253, 0.26)'
+    }
+  }
 };
 
+const defaultEmotionState = emotionStates[0];
+const ORB_OVERLAY_FADE_MS = 900;
+
 let avatarState = emotionStates[0];
+let orbOverlayEl = null;
+let orbOverlayFadeTimeout = null;
 
 if (orbEl) {
   orbEl.classList.add(`orb--${avatarState.name}`);
+  ensureOrbOverlay();
 }
 
 function applyAvatarState(nextStateId) {
   const nextState = emotionStates[nextStateId] ?? emotionStates[0];
 
-  if (orbEl) {
-    orbEl.classList.remove(`orb--${avatarState.name}`);
-    orbEl.classList.add(`orb--${nextState.name}`);
+  if (!orbEl || nextState.name === avatarState.name) {
+    avatarState = nextState;
+    return;
+  }
+
+  const previousState = avatarState;
+  const overlayEl = applyOverlayPalette(previousState ?? defaultEmotionState);
+  if (overlayEl) {
+    activateOverlay(overlayEl);
+  }
+
+  if (previousState?.name) {
+    orbEl.classList.remove(`orb--${previousState.name}`);
+  }
+  orbEl.classList.add(`orb--${nextState.name}`);
+
+  if (overlayEl) {
+    if (orbOverlayFadeTimeout) {
+      clearTimeout(orbOverlayFadeTimeout);
+    }
+    orbOverlayFadeTimeout = window.setTimeout(() => {
+      overlayEl.classList.remove('orb__overlay--active');
+      orbOverlayFadeTimeout = null;
+    }, ORB_OVERLAY_FADE_MS + 60);
   }
 
   avatarState = nextState;
+}
+
+function ensureOrbOverlay() {
+  if (!orbEl) {
+    return null;
+  }
+  if (!orbOverlayEl) {
+    orbOverlayEl = document.createElement('div');
+    orbOverlayEl.className = 'orb__overlay';
+    orbEl.appendChild(orbOverlayEl);
+    setOverlayPaletteValues(orbOverlayEl, avatarState?.palette ?? defaultEmotionState.palette);
+  }
+  return orbOverlayEl;
+}
+
+function applyOverlayPalette(state) {
+  const overlayEl = ensureOrbOverlay();
+  if (!overlayEl) {
+    return null;
+  }
+
+  const palette = state?.palette ?? defaultEmotionState.palette;
+  setOverlayPaletteValues(overlayEl, palette);
+
+  return overlayEl;
+}
+
+function setOverlayPaletteValues(element, palette) {
+  element.style.setProperty('--overlay-core', palette.core);
+  element.style.setProperty('--overlay-halo', palette.halo);
+  element.style.setProperty('--overlay-glow-one', palette.glowOne);
+  element.style.setProperty('--overlay-glow-two', palette.glowTwo);
+  element.style.setProperty('--overlay-glow-three', palette.glowThree);
+  element.style.setProperty('--overlay-glow-four', palette.glowFour);
+}
+
+function activateOverlay(overlayEl) {
+  overlayEl.classList.remove('orb__overlay--active');
+  // Flush removal before forcing the overlay visible without transition.
+  void overlayEl.offsetHeight;
+  overlayEl.style.transition = 'none';
+  overlayEl.classList.add('orb__overlay--active');
+  void overlayEl.offsetHeight;
+  overlayEl.style.transition = '';
 }
 
 function formatTime(date) {

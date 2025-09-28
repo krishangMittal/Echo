@@ -9,6 +9,42 @@
   --shadow: 0 16px 40px rgba(15, 23, 42, 0.25);
 }
 
+@property --orb-core {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(254, 240, 138, 0.95);
+}
+
+@property --orb-halo {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(252, 211, 77, 0.35);
+}
+
+@property --orb-glow-one {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(253, 224, 71, 0.75);
+}
+
+@property --orb-glow-two {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(250, 204, 21, 0.45);
+}
+
+@property --orb-glow-three {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(250, 204, 21, 0.55);
+}
+
+@property --orb-glow-four {
+  syntax: '<color>';
+  inherits: true;
+  initial-value: rgba(253, 224, 71, 0.35);
+}
+
 @font-face {
   font-family: 'PP Editorial New';
   src: url('/fonts/PPEditorialNew-Regular.woff2') format('woff2'),
@@ -126,11 +162,78 @@ body {
   height: 100%;
   border-radius: 50%;
   --orb-core: rgba(254, 240, 138, 0.95);
-  --orb-glow-one: rgba(253, 224, 71, 0.65);
+  --orb-halo: rgba(252, 211, 77, 0.35);
+  --orb-glow-one: rgba(253, 224, 71, 0.75);
   --orb-glow-two: rgba(250, 204, 21, 0.45);
-  background: radial-gradient(circle at 30% 25%, var(--orb-core), rgba(253, 224, 71, 0.18));
+  --orb-glow-three: rgba(250, 204, 21, 0.55);
+  --orb-glow-four: rgba(253, 224, 71, 0.35);
+  background: radial-gradient(circle at 30% 25%, var(--orb-core), var(--orb-halo));
   box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.35);
+  transition: --orb-core 900ms ease, --orb-halo 900ms ease, --orb-glow-one 900ms ease,
+    --orb-glow-two 900ms ease, --orb-glow-three 900ms ease, --orb-glow-four 900ms ease,
+    box-shadow 450ms ease;
   animation: pulse 8s ease-in-out infinite alternate;
+}
+
+.orb--listening {
+  box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.35), 0 0 65px rgba(56, 189, 248, 0.38);
+}
+
+.orb--speaking {
+  box-shadow: inset 0 0 54px rgba(255, 255, 255, 0.4), 0 0 85px rgba(253, 224, 71, 0.35);
+  animation-duration: 6.5s;
+}
+
+.orb__overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 900ms ease;
+  --overlay-core: rgba(254, 240, 138, 0.95);
+  --overlay-halo: rgba(252, 211, 77, 0.35);
+  --overlay-glow-one: rgba(253, 224, 71, 0.75);
+  --overlay-glow-two: rgba(250, 204, 21, 0.45);
+  --overlay-glow-three: rgba(250, 204, 21, 0.55);
+  --overlay-glow-four: rgba(253, 224, 71, 0.35);
+  background: radial-gradient(circle at 30% 25%, var(--overlay-core), var(--overlay-halo));
+  box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.28);
+  animation: pulse 8s ease-in-out infinite alternate;
+}
+
+.orb__overlay--active {
+  opacity: 1;
+}
+
+.orb__voice {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.orb__overlay::before,
+.orb__overlay::after {
+  content: '';
+  position: absolute;
+  inset: -12%;
+  border-radius: 46% 54% 60% 40% / 43% 47% 53% 57%;
+  mix-blend-mode: screen;
+  filter: blur(18px);
+  z-index: -1;
+}
+
+.orb__overlay::before {
+  background: radial-gradient(circle at 30% 30%, var(--overlay-glow-one), var(--overlay-glow-two));
+  animation: drift 12s ease-in-out infinite;
+}
+
+.orb__overlay::after {
+  background: radial-gradient(circle at 70% 70%, var(--overlay-glow-three), var(--overlay-glow-four));
+  animation: drift 16s ease-in-out infinite reverse;
 }
 
 .orb::before,
@@ -150,47 +253,53 @@ body {
 }
 
 .orb::after {
-  background: radial-gradient(circle at 70% 70%, var(--orb-glow-two), var(--orb-glow-one));
+  background: radial-gradient(circle at 70% 70%, var(--orb-glow-three), var(--orb-glow-four));
   animation: drift 16s ease-in-out infinite reverse;
 }
 
 .orb--joy {
   --orb-core: rgba(254, 240, 138, 0.95);
-  --orb-glow-one: rgba(253, 224, 71, 0.7);
-  --orb-glow-two: rgba(250, 204, 21, 0.5);
-  background: radial-gradient(circle at 30% 25%, rgba(254, 240, 138, 0.95), rgba(252, 211, 77, 0.4));
-}
-
-.orb--joy::before {
-  background: radial-gradient(circle at 30% 30%, rgba(253, 224, 71, 0.75), rgba(250, 204, 21, 0.45));
-}
-
-.orb--joy::after {
-  background: radial-gradient(circle at 70% 70%, rgba(250, 204, 21, 0.55), rgba(253, 224, 71, 0.35));
+  --orb-halo: rgba(252, 211, 77, 0.4);
+  --orb-glow-one: rgba(253, 224, 71, 0.75);
+  --orb-glow-two: rgba(250, 204, 21, 0.45);
+  --orb-glow-three: rgba(250, 204, 21, 0.55);
+  --orb-glow-four: rgba(253, 224, 71, 0.35);
 }
 
 .orb--anger {
-  --orb-core: rgba(248, 113, 113, 0.75);
-  --orb-glow-one: rgba(239, 68, 68, 0.5);
-  --orb-glow-two: rgba(220, 38, 38, 0.35);
+  --orb-core: rgba(248, 113, 113, 0.78);
+  --orb-halo: rgba(239, 68, 68, 0.4);
+  --orb-glow-one: rgba(239, 68, 68, 0.6);
+  --orb-glow-two: rgba(220, 38, 38, 0.4);
+  --orb-glow-three: rgba(252, 165, 165, 0.42);
+  --orb-glow-four: rgba(248, 113, 113, 0.3);
 }
 
 .orb--fear {
-  --orb-core: rgba(196, 181, 253, 0.8);
-  --orb-glow-one: rgba(167, 139, 250, 0.5);
+  --orb-core: rgba(196, 181, 253, 0.82);
+  --orb-halo: rgba(167, 139, 250, 0.35);
+  --orb-glow-one: rgba(167, 139, 250, 0.55);
   --orb-glow-two: rgba(139, 92, 246, 0.35);
+  --orb-glow-three: rgba(139, 92, 246, 0.45);
+  --orb-glow-four: rgba(196, 181, 253, 0.28);
 }
 
 .orb--disgust {
-  --orb-core: rgba(167, 243, 208, 0.8);
+  --orb-core: rgba(167, 243, 208, 0.82);
+  --orb-halo: rgba(110, 231, 183, 0.35);
   --orb-glow-one: rgba(110, 231, 183, 0.5);
-  --orb-glow-two: rgba(52, 211, 153, 0.35);
+  --orb-glow-two: rgba(52, 211, 153, 0.3);
+  --orb-glow-three: rgba(52, 211, 153, 0.4);
+  --orb-glow-four: rgba(167, 243, 208, 0.25);
 }
 
 .orb--sadness {
-  --orb-core: rgba(147, 197, 253, 0.8);
-  --orb-glow-one: rgba(96, 165, 250, 0.48);
+  --orb-core: rgba(147, 197, 253, 0.82);
+  --orb-halo: rgba(96, 165, 250, 0.35);
+  --orb-glow-one: rgba(96, 165, 250, 0.52);
   --orb-glow-two: rgba(59, 130, 246, 0.32);
+  --orb-glow-three: rgba(59, 130, 246, 0.42);
+  --orb-glow-four: rgba(147, 197, 253, 0.26);
 }
 
 @keyframes pulse {
@@ -418,6 +527,34 @@ body {
 
 .mute[aria-pressed="true"] {
   background: rgba(71, 85, 105, 0.9);
+}
+
+.mute--active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #f8fafc;
+}
+
+.mute--active:hover,
+.mute--active:focus {
+  background: rgba(56, 189, 248, 0.32);
+}
+
+.mute--busy {
+  cursor: progress;
+  opacity: 0.75;
+  transform: none;
+}
+
+.mute--error {
+  background: rgba(127, 29, 29, 0.9);
+  border-color: rgba(248, 113, 113, 0.6);
+  color: #fee2e2;
+}
+
+.mute--error:hover,
+.mute--error:focus {
+  background: rgba(153, 27, 27, 0.92);
 }
 
 @media (max-width: 900px) {
