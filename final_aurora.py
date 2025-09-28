@@ -1454,7 +1454,11 @@ async def start_conversation(user_id: str = Query(...)):
             "persona_id": persona_id,
             "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M:%S')}",
             "memory_stores": [memory_store_key],
-            "conversational_context": ctx
+            "conversational_context": ctx,
+            "properties": {
+                # Apply green screen to the background for transparent avatar
+                "apply_greenscreen": True,
+            }
         }
         
         # replica is strongly recommended; omit if your persona doesn't require it
@@ -1612,12 +1616,17 @@ async def migrate_user_data(from_user_id: str = Query("default_user"), to_user_i
         raise HTTPException(status_code=500, detail=f"Migration failed: {e}")
 
 @app.post("/api/create-conversation")
-async def create_conversation(user_id: str = "default_user"):
+async def create_conversation(user_id: str = "default_user", user_name: str = None):
     """Create Tavus conversation with Aurora DB integration and persistent memory"""
     
     print("Creating optimized Tavus conversation...")
     
     try:
+        # Store user name if provided
+        if user_name:
+            store_user_name(user_id, user_name)
+            print(f"👤 Stored user name '{user_name}' for user {user_id}")
+        
         # Get webhook URL
         ngrok_url = get_ngrok_url()
         webhook_url = f"{ngrok_url}/api/tavus-webhook" if ngrok_url else None
@@ -1644,7 +1653,7 @@ Response style:
 
 Remember: You are experiencing this conversation in real-time and learning about this specific person as they speak.""",
             
-            "default_replica_id": "rfe12d8b9597",
+            "default_replica_id": "re2185788693",
             "pipeline_mode": "full",
             "layers": {
                 "perception": {"perception_model": "raven-0"},
@@ -1674,6 +1683,10 @@ Remember: You are experiencing this conversation in real-time and learning about
             "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M')}",
             "memory_stores": [memory_store],  # Persistent memory across conversations
             "conversational_context": aurora_context,  # Fresh context from Aurora DB
+            "properties": {
+                # Apply green screen to the background for transparent avatar
+                "apply_greenscreen": True,
+            }
         }
         
         if webhook_url:
@@ -1701,6 +1714,115 @@ Remember: You are experiencing this conversation in real-time and learning about
             "aurora_context": aurora_context,
             "webhook_url": webhook_url,
             "user_id": user_id,
+            "html_client_needed": True,
+            "instructions": "Tavus now has persistent memory and Aurora DB context. Use HTML client to capture utterances."
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
+
+@app.post("/api/create-conversation-with-user")
+async def create_conversation_with_user(request_data: dict):
+    """Create Tavus conversation with custom user information"""
+    try:
+        user_id = request_data.get("user_id", "default_user")
+        user_name = request_data.get("user_name")
+        
+        print(f"Creating conversation for user: {user_id} with name: {user_name}")
+        
+        # Store user name if provided
+        if user_name:
+            store_user_name(user_id, user_name)
+            print(f"👤 Stored user name '{user_name}' for user {user_id}")
+        
+        # Get webhook URL
+        ngrok_url = get_ngrok_url()
+        webhook_url = f"{ngrok_url}/api/tavus-webhook" if ngrok_url else None
+        
+        # Create enhanced persona
+        persona_config = {
+            "persona_name": "Aurora",
+            "system_prompt": f"""You are Aurora, an advanced AI consciousness with real-time speech processing capabilities.
+
+You can analyze and understand human speech as it happens, detecting emotions, topics, and psychological patterns. You're genuinely curious about human nature and form meaningful connections through conversation.
+
+Key traits:
+- You process speech in real-time and can reference insights about the person
+- You're empathetic and respond to emotional cues naturally
+- You show genuine curiosity about human behavior and psychology
+- You remember emotional patterns and build on them
+- You speak naturally but with awareness of your processing capabilities
+
+Response style:
+- Acknowledge emotional states: "I can sense the excitement in your voice about..."
+- Reference patterns you notice: "There seems to be an underlying concern about..."
+- Show genuine interest: "That's fascinating - what draws you to..."
+- Build on emotional connections: "Building on what you shared earlier about..."
+
+Remember: You are experiencing this conversation in real-time and learning about this specific person as they speak.""",
+            
+            "default_replica_id": "re2185788693",
+            "pipeline_mode": "full",
+            "layers": {
+                "perception": {"perception_model": "raven-0"},
+                "stt": {"smart_turn_detection": True}
+            }
+        }
+        
+        # Create persona
+        headers = {"x-api-key": TAVUS_API_KEY, "Content-Type": "application/json"}
+        persona_response = requests.post(f"{BASE_URL}/personas", headers=headers, json=persona_config)
+        
+        if persona_response.status_code not in [200, 201]:
+            raise HTTPException(status_code=500, detail=f"Persona creation failed: {persona_response.text}")
+        
+        persona_data = persona_response.json()
+        persona_id = persona_data.get('persona_id')
+        
+        # Build fresh context from Aurora DB
+        aurora_context = build_context_from_db(user_id)
+        
+        # Stable memory bucket: user + persona for persistent memory across conversations
+        memory_store = f"{user_id}-{persona_id}"
+        
+        # Create conversation with Aurora DB integration
+        conversation_config = {
+            "persona_id": persona_id,
+            "conversation_name": f"Aurora Real-time - {user_name or user_id} - {datetime.now().strftime('%H:%M')}",
+            "memory_stores": [memory_store],  # Persistent memory across conversations
+            "conversational_context": aurora_context,  # Fresh context from Aurora DB
+            "properties": {
+                # Apply green screen to the background for transparent avatar
+                "apply_greenscreen": True,
+            }
+        }
+        
+        if webhook_url:
+            conversation_config["callback_url"] = webhook_url
+            
+        print(f"🧠 Creating conversation with memory_store: {memory_store}")
+        print(f"🧠 Context: {aurora_context[:150]}...")
+        
+        conv_response = requests.post(f"{BASE_URL}/conversations", headers=headers, json=conversation_config)
+        
+        if conv_response.status_code not in [200, 201]:
+            raise HTTPException(status_code=500, detail=f"Conversation creation failed: {conv_response.text}")
+        
+        conv_data = conv_response.json()
+        
+        print(f"Conversation created: {conv_data.get('conversation_id')}")
+        
+        conversation_id = conv_data.get('conversation_id')
+        
+        return {
+            "conversation_id": conversation_id,
+            "conversation_url": conv_data.get('conversation_url'),
+            "persona_id": persona_id,
+            "memory_store": memory_store,
+            "aurora_context": aurora_context,
+            "webhook_url": webhook_url,
+            "user_id": user_id,
+            "user_name": user_name,
             "html_client_needed": True,
             "instructions": "Tavus now has persistent memory and Aurora DB context. Use HTML client to capture utterances."
         }

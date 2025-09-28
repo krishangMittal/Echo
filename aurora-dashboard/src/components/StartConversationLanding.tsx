@@ -20,6 +20,8 @@ export function StartConversationLanding({ onConversationStart, userId = 'defaul
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastConversation, setLastConversation] = useState<ConversationResult | null>(null);
+  const [userName, setUserName] = useState('');
+  const [customUserId, setCustomUserId] = useState(userId);
 
   const createNewConversation = async () => {
     setIsCreating(true);
@@ -28,11 +30,16 @@ export function StartConversationLanding({ onConversationStart, userId = 'defaul
     try {
       console.log('🚀 Creating new Aurora conversation...');
 
-      const response = await fetch('http://localhost:8000/api/create-conversation', {
+      // Use the new endpoint that supports custom user names
+      const response = await fetch('http://localhost:8000/api/create-conversation-with-user', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          user_id: customUserId,
+          user_name: userName || undefined
+        })
       });
 
       if (!response.ok) {
@@ -87,6 +94,40 @@ export function StartConversationLanding({ onConversationStart, userId = 'defaul
             </p>
           </div>
         </div>
+
+        {/* User Input Fields */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+          className="space-y-4 w-full max-w-md"
+        >
+          <div className="space-y-3">
+            <label className="block text-sm font-light text-gray-400">
+              User ID
+            </label>
+            <input
+              type="text"
+              value={customUserId}
+              onChange={(e) => setCustomUserId(e.target.value)}
+              placeholder="Enter user ID"
+              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20"
+            />
+          </div>
+          
+          <div className="space-y-3">
+            <label className="block text-sm font-light text-gray-400">
+              Display Name (Optional)
+            </label>
+            <input
+              type="text"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="Enter your name"
+              className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600/30 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-400/50 focus:ring-1 focus:ring-cyan-400/20"
+            />
+          </div>
+        </motion.div>
 
         {/* Single Action Button */}
         <motion.div
@@ -144,7 +185,7 @@ export function StartConversationLanding({ onConversationStart, userId = 'defaul
             className="flex items-center justify-center space-x-2 text-gray-500 text-sm font-light"
           >
             <User className="w-4 h-4" />
-            <span>{userId}</span>
+            <span>{userName || customUserId}</span>
           </motion.div>
         </motion.div>
 

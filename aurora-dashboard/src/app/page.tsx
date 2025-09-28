@@ -6,7 +6,7 @@ import { CustomAuroraLayout } from '@/components/CustomAuroraLayout';
 import { MetricCard } from '@/components/MetricCard';
 import { InsightPanel } from '@/components/InsightPanel';
 import { ConnectionStatus } from '@/components/ConnectionStatus';
-import { AnalyticsPanel } from '@/components/AnalyticsPanel';
+import { LearningTimelineAnalytics } from '@/components/LearningTimelineAnalytics';
 import { InteractionGuide } from '@/components/InteractionGuide';
 import { ClientOnly } from '@/components/ClientOnly';
 import { StartConversationLanding } from '@/components/StartConversationLanding';
@@ -45,7 +45,7 @@ export default function Dashboard() {
 
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'main' | 'analytics' | 'settings' | 'orb' | 'start'>('start');
+  const [activeView, setActiveView] = useState<'main' | 'analytics' | 'settings' | 'start'>('start');
   const [userId, setUserId] = useState('default_user');
   const [mounted, setMounted] = useState(false);
   const [currentConversationUrl, setCurrentConversationUrl] = useState<string | null>(null);
@@ -176,7 +176,6 @@ export default function Dashboard() {
               { key: 'start', icon: MessageCircle, label: 'Start' },
               { key: 'main', icon: Brain, label: 'Main' },
               { key: 'analytics', icon: Activity, label: 'Analytics' },
-              { key: 'orb', icon: Palette, label: 'Orb' },
               { key: 'settings', icon: Settings, label: 'Settings' }
             ].map(({ key, icon: Icon, label }) => (
               <motion.button
@@ -209,19 +208,9 @@ export default function Dashboard() {
 
         {/* Aurora Logo - Top Right */}
         <div className="flex items-center space-x-4">
-          <motion.div
-            animate={{
-              rotate: metrics.conversation_active ? 360 : 0,
-              scale: metrics.conversation_active ? [1, 1.1, 1] : 1
-            }}
-            transition={{
-              rotate: { duration: 3, repeat: metrics.conversation_active ? Infinity : 0, ease: "linear" },
-              scale: { duration: 2, repeat: metrics.conversation_active ? Infinity : 0 }
-            }}
-            className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/30"
-          >
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
             <Brain className="w-4 h-4 text-white" />
-          </motion.div>
+          </div>
           <div>
             <h1 className="text-xl font-extralight tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
               AURORA
@@ -451,31 +440,10 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             className="h-full"
           >
-            <AnalyticsPanel userId={userId} />
+            <LearningTimelineAnalytics userId={userId} />
           </motion.div>
         )}
 
-        {activeView === 'orb' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="h-full flex items-center justify-center"
-          >
-            <div className="text-center space-y-4">
-              <h2 className="text-2xl font-light text-white">Chroma Key Avatar Orb</h2>
-              <p className="text-gray-400">Interactive demo with live customization</p>
-              <motion.a
-                href="/orb-demo"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg font-medium shadow-lg shadow-cyan-500/30"
-              >
-                <Palette className="w-5 h-5" />
-                <span>Open Orb Demo</span>
-              </motion.a>
-            </div>
-          </motion.div>
-        )}
 
         {activeView === 'settings' && (
           <motion.div
