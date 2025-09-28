@@ -1,8 +1,6 @@
 fastapi
 uvicorn
-lancedb
-pyarrow
-hnswlib
+pinecone
 numpy
 tiktoken
 openai
@@ -11,3 +9,4 @@ pydantic-settings
 requests
 python-dotenv
 pytest
+cohere

@@ -11,10 +11,9 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from app.config import Settings, get_settings
-from app.memory.index import HotIndexManager
-from app.memory.store import MemoryRecord, MemorySpeaker, MemoryStore
+from app.memory import MemoryRecord, MemorySpeaker, PineconeMemoryStore
 from app.security.webhook import WebhookVerificationError, verify_webhook_signature
-from app.services.openai_client import EmbeddingResult, OpenAIEmbeddingClient
+from app.services.cohere_client import EmbeddingResult, CohereEmbeddingClient
 from app.text.chunker import Chunk, TextChunker
 
 logger = logging.getLogger(__name__)
@@ -31,6 +30,7 @@ class IngestMessage:
     timestamp: datetime
     tags: Sequence[str]
     source: str
+    user_id: Optional[str] = None
 
 
 @dataclass
@@ -78,16 +78,14 @@ class CallbackProcessor:
 
     def __init__(
         self,
-        memory_store: MemoryStore,
-        hot_index: HotIndexManager,
+        memory_store: PineconeMemoryStore,
         chunker: TextChunker,
-        embeddings: OpenAIEmbeddingClient,
+        embeddings: CohereEmbeddingClient,
         settings: Optional[Settings] = None,
         dlq: Optional[DeadLetterQueue] = None,
     ) -> None:
         self._settings = settings or get_settings()
         self._store = memory_store
-        self._hot_index = hot_index
         self._chunker = chunker
         self._embeddings = embeddings
         self._dlq = dlq or DeadLetterQueue(Path("dlq"))
@@ -138,14 +136,11 @@ class CallbackProcessor:
             try:
                 upserted = self._store.upsert(records)
             except Exception as exc:
-                self._dlq.write(body, f"lance:{exc}", {"payload": payload})
+                self._dlq.write(body, f"pinecone:{exc}", {"payload": payload})
                 raise
-            try:
-                added = self._hot_index.add_or_update(records)
-                evicted = self._hot_index.maintain_hot_window()
-            except Exception as exc:
-                self._dlq.write(body, f"hot_index:{exc}", {"payload": payload})
-                raise
+            # Hot index is no longer needed with Pinecone
+            added = upserted
+            evicted = 0
         except ValueError as exc:
             self._dlq.write(body, f"payload:{exc}", {"payload": payload})
             raise
@@ -156,7 +151,7 @@ class CallbackProcessor:
             "Processed ingest callback",
             extra={
                 "upserted": upserted,
-                "added_to_hot_index": added,
+                "processed": added,
                 "evicted": evicted,
                 "chunks": len(chunk_pairs),
                 "conversation_ids": conversation_ids,
@@ -181,6 +176,10 @@ class CallbackProcessor:
         record_hash = hashlib.sha1(hash_input.encode("utf-8")).hexdigest()
         record_id = uuid5(NAMESPACE_URL, record_hash)
         speaker = self._resolve_speaker(message.speaker)
+        
+        # Extract user_id from conversation_id if not provided
+        user_id = message.user_id or message.conversation_id.split('_')[0] if '_' in message.conversation_id else message.conversation_id
+        
         return MemoryRecord(
             id=str(record_id),
             conv_id=message.conversation_id,
@@ -195,6 +194,7 @@ class CallbackProcessor:
             source=message.source,
             embed_model=embedding.model,
             embed_dim=embedding.dimension,
+            user_id=user_id,
         )
 
     def _extract_messages(self, payload: Any) -> List[IngestMessage]:
@@ -243,6 +243,8 @@ class CallbackProcessor:
         timestamp = _parse_timestamp(_first_non_empty(data.get("timestamp"), data.get("ts"), data.get("time")))
         tags = data.get("tags") if isinstance(data.get("tags"), list) else []
         source = _first_non_empty(data.get("source"), "ingest-webhook")
+        user_id = _first_non_empty(data.get("user_id"), data.get("user"), data.get("userId"))
+        
         return IngestMessage(
             conversation_id=conversation_id,
             turn=turn,
@@ -251,6 +253,7 @@ class CallbackProcessor:
             timestamp=timestamp,
             tags=tags,
             source=str(source),
+            user_id=str(user_id) if user_id else None,
         )
 
     def _resolve_speaker(self, speaker: str) -> MemorySpeaker:

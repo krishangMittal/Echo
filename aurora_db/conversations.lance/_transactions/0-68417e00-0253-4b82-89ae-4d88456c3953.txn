@@ -1,5 +1,0 @@
-$68417e00-0253-4b82-89ae-4d88456c3953²€1conversation_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault+user_id ÿÿÿÿÿÿÿÿÿ*string08Zdefault.
-started_at ÿÿÿÿÿÿÿÿÿ*string08Zdefault,ended_at ÿÿÿÿÿÿÿÿÿ*string08Zdefault.total_turns ÿÿÿÿÿÿÿÿÿ*int6408Zdefault<final_relationship_level ÿÿÿÿÿÿÿÿÿ*double08Zdefault5final_trust_level ÿÿÿÿÿÿÿÿÿ*double08Zdefault8final_emotional_sync ÿÿÿÿÿÿÿÿÿ*double08Zdefault6final_memory_depth ÿÿÿÿÿÿÿÿÿ*double08Zdefault2dominant_topic	 ÿÿÿÿÿÿÿÿÿ*string08Zdefault5emotional_journey
- ÿÿÿÿÿÿÿÿÿ*string08Zdefault8conversation_summary ÿÿÿÿÿÿÿÿÿ*string08Zdefault3key_revelations ÿÿÿÿÿÿÿÿÿ*string08Zdefault7vulnerability_score ÿÿÿÿÿÿÿÿÿ*double08ZdefaultJconversation_vector ÿÿÿÿÿÿÿÿÿ*fixed_size_list:float:38408Zdefault"!
-lance.auto_cleanup.interval20"'
-lance.auto_cleanup.older_than14days

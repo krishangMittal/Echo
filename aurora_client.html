@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Aurora Speech Capture</title>
+    <title>Aurora - Pinecone Memory Integration</title>
     <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
     <style>
         body {
@@ -49,13 +49,20 @@
     </style>
 </head>
 <body>
-    <h1>Aurora Real-time Speech Processing</h1>
+    <h1>🚀 Aurora - AI with Pinecone Memory</h1>
+    <p style="color: #888; margin-bottom: 20px;">
+        Enhanced with Pinecone vector memory + Cohere embeddings. 
+        Aurora remembers you're <strong>Abiodun</strong>, a computer science student! 🧠
+    </p>
     <div id="status">Connecting...</div>
     <div id="messages"></div>
 
     <script>
         let call;
-        const BACKEND_URL = "https://vasoinhibitory-daniele-investigable.ngrok-free.dev";
+        const BACKEND_URL = "http://localhost:8000";
+        const TAVUS_BACKEND_URL = "http://localhost:8000"; // Using same service for simplicity
+        let conversationId;
+        const USER_ID = "abiodun"; // Your user ID
         
         const addMessage = (msg, type = 'system') => {
             const div = document.createElement('div');
@@ -66,9 +73,47 @@
             console.log(msg);
         };
 
-        addMessage('Creating Daily frame...', 'system-message');
-        
-        try {
+        // Create a new conversation using our Pinecone + Tavus integration
+        async function createConversation() {
+            try {
+                // First check integration status
+                const statusResponse = await fetch(`${TAVUS_BACKEND_URL}/api/integration-status?user_id=${USER_ID}`);
+                const statusData = await statusResponse.json();
+                addMessage(`🧠 Memory system: ${statusData.user_profile?.total_memories || 0} memories stored`, 'system-message');
+                
+                // Start a new Tavus conversation with your memory context
+                const response = await fetch(`${TAVUS_BACKEND_URL}/api/start-conversation?user_id=${USER_ID}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'}
+                });
+                const data = await response.json();
+
+                if (data.conversation_id) {
+                    conversationId = data.conversation_id;
+                    addMessage(`✅ Aurora conversation created: ${conversationId}`, 'system-message');
+                    addMessage(`🎭 Context loaded: Knows you're ${statusData.user_profile?.remembered_name || 'Abiodun'}`, 'system-message');
+                    return data.conversation_url || `https://tavus.daily.co/${conversationId}`;
+                } else {
+                    throw new Error('No conversation URL/ID returned by backend');
+                }
+            } catch (error) {
+                addMessage(`❌ Failed to create conversation: ${error.message}`, 'system-message');
+                return null;  // do NOT join an invalid room
+            }
+        }
+
+        addMessage('Creating new conversation...', 'system-message');
+
+        // Initialize conversation and Daily frame
+        createConversation().then(conversationURL => {
+            if (!conversationURL) {
+                addMessage('❌ No valid conversation URL returned; cannot join.', 'system-message');
+                return;
+            }
+
+            addMessage('Creating Daily frame...', 'system-message');
+
+            try {
             call = window.Daily.createFrame();
             addMessage('Daily frame created', 'system-message');
             
@@ -83,11 +128,20 @@
                     if (role === 'user' && speech) {
                         addMessage(`You said: ${speech}`, 'user-speech');
                         
-                        // Send to backend for processing
+                        // Send to backend for processing with conversation ID
+                        if (!conversationId) {
+                            addMessage('❌ No conversation ID available', 'system-message');
+                            return;
+                        }
+
                         fetch(`${BACKEND_URL}/api/process-speech`, {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({text: speech})
+                            body: JSON.stringify({
+                                text: speech,
+                                conversation_id: conversationId,
+                                user_id: USER_ID  // Use the same user_id as conversation creation
+                            })
                         })
                         .then(response => response.json())
                         .then(result => {
@@ -123,15 +177,14 @@
                 addMessage(`Error: ${error}`, 'system-message');
             });
             
-            // Use your NEW conversation URL
-            const conversationURL = 'https://tavus.daily.co/c4186ea25b881413';
-            
+            // Use the conversation URL from the createConversation response
             addMessage(`Joining: ${conversationURL}`, 'system-message');
             call.join({ url: conversationURL });
-            
-        } catch (error) {
-            addMessage(`JavaScript error: ${error}`, 'system-message');
-        }
+
+            } catch (error) {
+                addMessage(`JavaScript error: ${error}`, 'system-message');
+            }
+        });
 
         // Add function to get current metrics
         function getMetrics() {

@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.callbacks import CallbackResult, WebhookVerificationError
-from app.memory.store import MemoryRecord, MemorySpeaker
+from app.memory import MemoryRecord, MemorySpeaker
 from app.state import AppState
 from datetime import datetime, timezone
 import hashlib
@@ -36,18 +36,16 @@ async def ingest_callback(request: Request, state: AppState = Depends(get_state)
     except Exception as exc:
         logger.exception("Callback processing failed")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="callback processing failed") from exc
-    hot_metrics = state.hot_index.metrics
-    state.metrics.record_callback(result, hot_metrics)
-    try:
-        lance_rows = state.memory_store.table.count_rows()
-    except Exception as exc:
-        logger.warning("Unable to count Lance rows: %s", exc)
-        lance_rows = -1
-    snapshot = state.metrics.snapshot(lance_rows, hot_metrics)
+    
+    # Get Pinecone stats instead of hot index metrics
+    pinecone_stats = state.memory_store.get_stats()
+    state.metrics.record_callback(result, None)  # No hot index metrics
+    
+    snapshot = state.metrics.snapshot(pinecone_stats.get("total_vector_count", -1), None)
     return {
         "status": "ok",
         "result": result.to_dict(),
-        "hot_index": hot_metrics.to_json(),
+        "pinecone": pinecone_stats,
         "metrics": snapshot.to_dict(),
     }
 
@@ -56,40 +54,53 @@ async def ingest_callback(request: Request, state: AppState = Depends(get_state)
 async def recall(
     request: Request,
     q: str,
+    user_id: str,
     top_k: Optional[int] = None,
     score_threshold: float = 0.0,
     state: AppState = Depends(get_state),
 ) -> dict:
     if not q or not q.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="query text is required")
+    if not user_id or not user_id.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="user_id is required")
+    
     normalized = state.chunker.normalize(q)
-    try:
-        vector = state.embeddings.embed_texts([normalized])[0]
-    except Exception as exc:
-        logger.exception("Failed to embed recall query")
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="embedding service error") from exc
     k = top_k or state.settings.topk
-    results = state.hot_index.query(vector, topk=k)
+    
+    try:
+        # Use Pinecone search instead of hot index
+        results = state.memory_store.search_by_text(
+            user_id=user_id,
+            query_text=normalized,
+            top_k=k,
+            max_distance=1.0 - score_threshold  # Convert score threshold to distance
+        )
+    except Exception as exc:
+        logger.exception("Failed to search semantic memory")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="search service error") from exc
+    
     filtered = [
         {
             "id": record.id,
             "conversation_id": record.conv_id,
             "turn": record.turn,
             "speaker": record.speaker.value,
-            "score": score,
+            "score": 1.0 - (1.0 - score_threshold),  # Placeholder score
             "raw_text": record.raw_text,
             "normalized_text": record.normalized_text,
             "tags": list(record.tags),
             "timestamp": record.ts.isoformat(),
             "source": record.source,
             "embed_model": record.embed_model,
+            "user_id": record.user_id,
         }
-        for record, score in results
-        if score >= score_threshold
+        for record in results
     ]
+    
     return {
         "query": q,
         "normalized_query": normalized,
+        "user_id": user_id,
         "top_k": k,
         "score_threshold": score_threshold,
         "results": filtered,
@@ -99,12 +110,10 @@ async def recall(
 @router.get("/healthz")
 async def healthz(state: AppState = Depends(get_state)) -> dict:
     try:
-        rows = state.memory_store.table.count_rows()
-        metrics = state.hot_index.metrics
+        stats = state.memory_store.get_stats()
         return {
             "status": "ok",
-            "lance": {"rows": rows},
-            "hot_index": metrics.to_json(),
+            "pinecone": stats,
         }
     except Exception as exc:
         logger.exception("Health check failed")
@@ -114,27 +123,29 @@ async def healthz(state: AppState = Depends(get_state)) -> dict:
 @router.get("/metrics")
 async def metrics(state: AppState = Depends(get_state)) -> dict:
     try:
-        lance_rows = state.memory_store.table.count_rows()
+        stats = state.memory_store.get_stats()
+        vector_count = stats.get("total_vector_count", -1)
     except Exception as exc:
-        logger.warning("Unable to count Lance rows for metrics: %s", exc)
-        lance_rows = -1
-    hot_metrics = state.hot_index.metrics
-    snapshot = state.metrics.snapshot(lance_rows, hot_metrics)
+        logger.warning("Unable to get Pinecone stats for metrics: %s", exc)
+        vector_count = -1
+        stats = {"error": str(exc)}
+    
+    snapshot = state.metrics.snapshot(vector_count, None)
     return {
         "metrics": snapshot.to_dict(),
-        "hot_index": hot_metrics.to_json(),
+        "pinecone": stats,
     }
 
 
 @router.post("/test/ingest")
 async def test_ingest(
     conversation_id: str,
+    user_id: str,
     text: Optional[str] = None,
     state: AppState = Depends(get_state),
 ) -> dict:
     """Local helper to ingest text and preview the generated summary flow."""
     ingested = 0
-    added = 0
     if text and text.strip():
         # Build a minimal MemoryRecord similar to the callback pipeline
         chunks = state.chunker.chunk(text)
@@ -157,19 +168,22 @@ async def test_ingest(
                     source="local-test",
                     embed_model=embedding.model,
                     embed_dim=embedding.dimension,
+                    user_id=user_id,
                 )
                 records.append(record)
             ingested = state.memory_store.upsert(records)
-            added = state.hot_index.add_or_update(records)
+    
     # Build a context summary from recent memory
-    history = state.memory_store.latest_for_conversation(conversation_id, limit=5)
+    history = state.memory_store.latest_for_conversation(conversation_id, user_id, limit=5)
     if not history:
-        return {"status": "ok", "ingested": ingested, "added_to_hot_index": added, "message": "no records for conversation"}
+        return {"status": "ok", "ingested": ingested, "message": "no records for conversation"}
+    
     # Simple summary: take last 1-2 snippets and stitch
     snippets = [r.raw_text.strip() for r in history[-2:] if r.raw_text.strip()]
     summary = ". ".join(s.rstrip(".") for s in snippets if s)
     if summary and not summary.endswith("."):
         summary += "."
+    
     payload = {
         "summary": summary or (history[-1].raw_text if history else ""),
         "snippets": [
@@ -182,10 +196,11 @@ async def test_ingest(
         ],
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
+    
     return {
         "status": "ok",
         "ingested": ingested,
-        "added_to_hot_index": added,
         "conversation_id": conversation_id,
+        "user_id": user_id,
         "summary": payload,
     }
