@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import httpx
 from dotenv import load_dotenv
@@ -15,9 +16,18 @@ load_dotenv()
 
 logger = logging.getLogger("assistant.ai")
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "models/gemini-2.5-flash")
-PUBLIC_DIR = Path(__file__).resolve().parent.parent / "public"
+PUBLIC_DIR = PROJECT_ROOT / "public"
+README_PATH = PROJECT_ROOT / "README.md"
+
+try:
+    README_INSTRUCTIONS = README_PATH.read_text(encoding="utf-8").strip()
+except FileNotFoundError:
+    README_INSTRUCTIONS = ""
+    logger = logging.getLogger("assistant.ai")
+    logger.warning("README.md not found at %s; system prompt will be empty", README_PATH)
 
 app = Flask(__name__, static_folder=str(PUBLIC_DIR), static_url_path="")
 
@@ -67,13 +77,13 @@ def create_chat_completion():
     if latest.role != "user":
         return jsonify({"detail": "Last message must come from the user"}), 400
 
-    system_instruction: Optional[str] = None
+    system_instruction_text: Optional[str] = None
     history = []
 
     for message in payload.messages[:-1]:
         role = message.role.lower()
         if role == "system":
-            system_instruction = message.content.strip()
+            system_instruction_text = message.content.strip()
             continue
 
         parts = [{"text": message.content.strip()}]
@@ -85,7 +95,7 @@ def create_chat_completion():
             return jsonify({"detail": f"Unsupported role '{message.role}'"}), 400
 
     model_name = normalise_model_name(GEMINI_MODEL)
-    request_payload = build_request_body(history, latest.content, system_instruction)
+    request_payload = build_request_body(history, latest.content, system_instruction_text)
 
     try:
         result = call_gemini(model_name, request_payload)
@@ -96,8 +106,8 @@ def create_chat_completion():
         logger.exception("Gemini request failed")
         return jsonify({"detail": f"Gemini request failed: {exc}"}), 502
 
-    reply_text = extract_reply_text(result)
-    return jsonify({"reply": reply_text})
+    reply_text, emotion_id, raw_reply = parse_model_reply(result)
+    return jsonify({"reply": reply_text, "emotionId": emotion_id, "rawReply": raw_reply})
 
 
 def normalise_model_name(model: str) -> str:
@@ -105,6 +115,21 @@ def normalise_model_name(model: str) -> str:
     if not model.startswith("models/"):
         model = f"models/{model}"
     return model
+
+
+def compose_system_instruction(additional_instruction: Optional[str]) -> Optional[dict]:
+    instructions = [README_INSTRUCTIONS.strip()]
+    if additional_instruction:
+        instructions.append(f"Additional instruction:\n{additional_instruction.strip()}")
+
+    combined = "\n\n".join(filter(None, instructions)).strip()
+    if not combined:
+        return None
+
+    return {
+        "role": "system",
+        "parts": [{"text": combined}]
+    }
 
 
 def build_request_body(history: List[dict], latest_user_message: str, system_instruction: Optional[str]) -> dict:
@@ -122,11 +147,9 @@ def build_request_body(history: List[dict], latest_user_message: str, system_ins
         }
     }
 
-    if system_instruction:
-        payload["systemInstruction"] = {
-            "role": "system",
-            "parts": [{"text": system_instruction.strip()}]
-        }
+    system_payload = compose_system_instruction(system_instruction)
+    if system_payload:
+        payload["systemInstruction"] = system_payload
 
     return payload
 
@@ -155,16 +178,28 @@ def call_gemini(model_name: str, payload: dict) -> dict:
     raise GeminiAPIError(response.status_code, details.get("error", details))
 
 
-def extract_reply_text(result: dict) -> str:
+EMOTION_PREFIX_PATTERN = re.compile(r"^(?P<id>[0-4])\s*(?:[|:-])\s*(?P<body>.*)$", re.DOTALL)
+
+
+def parse_model_reply(result: dict) -> Tuple[str, int, str]:
     candidates = result.get("candidates", [])
     for candidate in candidates:
         content = candidate.get("content") or {}
         parts = content.get("parts", [])
         texts = [part.get("text", "") for part in parts]
-        combined = "\n".join(filter(None, texts))
-        if combined.strip():
-            return combined.strip()
-    return ""
+        combined = "\n".join(filter(None, texts)).strip()
+        if not combined:
+            continue
+
+        match = EMOTION_PREFIX_PATTERN.match(combined)
+        if match:
+            emotion_id = int(match.group("id"))
+            body = match.group("body").strip()
+            return body, emotion_id, combined
+
+        return combined, 0, combined
+
+    return "", 0, ""
 
 
 if not PUBLIC_DIR.exists():  # pragma: no cover

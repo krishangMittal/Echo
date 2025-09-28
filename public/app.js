@@ -5,16 +5,37 @@ const inputEl = document.getElementById('chat-input');
 const chatPanel = document.getElementById('chat-panel');
 const keyboardButton = document.getElementById('keyboard-toggle');
 const muteButton = document.getElementById('mute-toggle');
+const orbEl = document.querySelector('.orb');
 
 let muted = false;
 let chatVisible = false;
-const conversation = [
-  {
-    role: 'system',
-    content: 'You are a thoughtful, encouraging assistant who keeps responses concise and helpful.'
-  }
-];
+const conversation = [];
 let pendingReplyEl = null;
+
+const emotionStates = {
+  0: { id: 0, name: 'joy', color: 'yellow' },
+  1: { id: 1, name: 'anger', color: 'red' },
+  2: { id: 2, name: 'fear', color: 'purple' },
+  3: { id: 3, name: 'disgust', color: 'green' },
+  4: { id: 4, name: 'sadness', color: 'blue' }
+};
+
+let avatarState = emotionStates[0];
+
+if (orbEl) {
+  orbEl.classList.add(`orb--${avatarState.name}`);
+}
+
+function applyAvatarState(nextStateId) {
+  const nextState = emotionStates[nextStateId] ?? emotionStates[0];
+
+  if (orbEl) {
+    orbEl.classList.remove(`orb--${avatarState.name}`);
+    orbEl.classList.add(`orb--${nextState.name}`);
+  }
+
+  avatarState = nextState;
+}
 
 function formatTime(date) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -126,17 +147,17 @@ function sendChatRequest() {
       return response.json();
     })
     .then(data => {
+      const emotionId = Number.isInteger(data?.emotionId) ? data.emotionId : 0;
+      applyAvatarState(emotionId);
+
       const reply = data?.reply?.trim();
+      const rawReply = (data?.rawReply ?? reply ?? '').trim();
+
       if (!reply) {
         updatePendingReply('I could not find anything to say just now.');
         return;
       }
-      conversation.push({ role: 'assistant', content: reply });
+      conversation.push({ role: 'assistant', content: rawReply });
       updatePendingReply(reply);
     });
 }
-
-conversation.push({
-  role: 'system',
-  content: 'You are a thoughtful, encouraging assistant who keeps responses concise and helpful.'
-});

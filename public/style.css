@@ -63,7 +63,7 @@ body {
   letter-spacing: 0.01em;
   opacity: 0;
   transform: translateX(-24px);
-  animation: titleFade 1.96s cubic-bezier(0.25, 0.9, 0.25, 1) forwards;
+  animation: titleFade 5.96s cubic-bezier(0.25, 0.9, 0.25, 1) forwards;
 }
 
 @keyframes titleFade {
@@ -125,7 +125,10 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, rgba(248, 250, 252, 0.8), rgba(148, 163, 184, 0.15));
+  --orb-core: rgba(254, 240, 138, 0.95);
+  --orb-glow-one: rgba(253, 224, 71, 0.65);
+  --orb-glow-two: rgba(250, 204, 21, 0.45);
+  background: radial-gradient(circle at 30% 25%, var(--orb-core), rgba(253, 224, 71, 0.18));
   box-shadow: inset 0 0 50px rgba(255, 255, 255, 0.35);
   animation: pulse 8s ease-in-out infinite alternate;
 }
@@ -142,13 +145,52 @@ body {
 }
 
 .orb::before {
-  background: radial-gradient(circle at 30% 30%, rgba(56, 189, 248, 0.55), rgba(129, 140, 248, 0.25));
+  background: radial-gradient(circle at 30% 30%, var(--orb-glow-one), var(--orb-glow-two));
   animation: drift 12s ease-in-out infinite;
 }
 
 .orb::after {
-  background: radial-gradient(circle at 70% 70%, rgba(14, 165, 233, 0.4), rgba(59, 130, 246, 0.2));
+  background: radial-gradient(circle at 70% 70%, var(--orb-glow-two), var(--orb-glow-one));
   animation: drift 16s ease-in-out infinite reverse;
+}
+
+.orb--joy {
+  --orb-core: rgba(254, 240, 138, 0.95);
+  --orb-glow-one: rgba(253, 224, 71, 0.7);
+  --orb-glow-two: rgba(250, 204, 21, 0.5);
+  background: radial-gradient(circle at 30% 25%, rgba(254, 240, 138, 0.95), rgba(252, 211, 77, 0.4));
+}
+
+.orb--joy::before {
+  background: radial-gradient(circle at 30% 30%, rgba(253, 224, 71, 0.75), rgba(250, 204, 21, 0.45));
+}
+
+.orb--joy::after {
+  background: radial-gradient(circle at 70% 70%, rgba(250, 204, 21, 0.55), rgba(253, 224, 71, 0.35));
+}
+
+.orb--anger {
+  --orb-core: rgba(248, 113, 113, 0.75);
+  --orb-glow-one: rgba(239, 68, 68, 0.5);
+  --orb-glow-two: rgba(220, 38, 38, 0.35);
+}
+
+.orb--fear {
+  --orb-core: rgba(196, 181, 253, 0.8);
+  --orb-glow-one: rgba(167, 139, 250, 0.5);
+  --orb-glow-two: rgba(139, 92, 246, 0.35);
+}
+
+.orb--disgust {
+  --orb-core: rgba(167, 243, 208, 0.8);
+  --orb-glow-one: rgba(110, 231, 183, 0.5);
+  --orb-glow-two: rgba(52, 211, 153, 0.35);
+}
+
+.orb--sadness {
+  --orb-core: rgba(147, 197, 253, 0.8);
+  --orb-glow-one: rgba(96, 165, 250, 0.48);
+  --orb-glow-two: rgba(59, 130, 246, 0.32);
 }
 
 @keyframes pulse {
