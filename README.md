@@ -1,66 +1,60 @@
-# Ghost in the Shell
+# Echo Memory Service
 
-> "If we all reacted the same way, we'd be predictable, and there's always more than one way to view a situation. What's true for the group is also true for the individual. It's simple: overspecialize, and you breed in weakness. It's slow death."
-> — Major Motoko Kusanagi
+FastAPI service that ingests webhook payloads, persists conversational memory in LanceDB, and serves low-latency recall via an in-memory HNSW index. Pair it with any speech/vision pipeline by posting transcripts or summaries into the ingest endpoint.
 
-## Overview
+## Environment Setup
 
-Welcome to the Ghost in the Shell project. This repository embodies the themes of cyberpunk, consciousness, and the intersection of technology and humanity that define the iconic manga and anime series.
+- Python 3.11+
+- `pip install -r requirements.txt`
+- Copy `.env.example` to `.env` and populate the credentials:
+  - `OPENAI_API_KEY`
+  - Optional: `INGEST_WEBHOOK_SECRET` if you want signature verification enabled.
+  - Tweak embedding and Lance paths as needed.
 
-## Project Description
+### Local/dev testing without webhooks
 
-[Add your project description here - what is this project about?]
+- To bypass webhook signature verification during local testing, set `WEBHOOK_VERIFY=false` in `.env`.
+  - Do not disable verification in staging/production.
 
-## Features
-
-- [ ] Feature 1
-- [ ] Feature 2
-- [ ] Feature 3
-
-## Installation
+## Quick Smoke Tests
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd "Ghost in the Shell"
-
-# Install dependencies (if applicable)
-# Add installation instructions here
+pytest
 ```
 
-## Usage
+## Run The Server
 
-[Add usage instructions here]
+```bash
+./scripts/run_server.sh
+```
 
-## Technology Stack
+The API exposes:
+- `POST /ingest/callback` – ingest webhook payloads (requires `X-Ingest-Signature` header when verification is enabled)
+- `GET /recall?q=...` – retrieve top-k snippets with optional score cut-off
+- `GET /healthz` – basic liveness check
+- `GET /metrics` – counters plus hot-index metadata
 
-[Add your technology stack here]
+## Expose Via Ngrok & Signature Setup
 
-## Contributing
+```bash
+ngrok http --domain <your-domain>.ngrok.app 8000
+```
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Point your upstream service at `https://<your-domain>.ngrok.app/ingest/callback` and share the signing secret via `INGEST_WEBHOOK_SECRET`.
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+## Warm The Hot Index
 
-## License
+```bash
+python scripts/warm_cache.py
+```
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+## Replay Dead Letter Queue Payloads
 
-## Acknowledgments
+```bash
+python scripts/dlq_replay.py --delete-on-success
+```
 
-- Inspired by the works of Masamune Shirow
-- Ghost in the Shell (1995) - Mamoru Oshii
-- Ghost in the Shell: Stand Alone Complex
-- All the talented creators who brought this cyberpunk universe to life
+## Logs & Metrics
 
-## Contact
-
-[Add your contact information here]
-
----
-
-*"The net is vast and infinite."*
+- Structured JSON logs stream to stdout; rotated text logs live under `logs/app.log`.
+- `GET /metrics` exposes chunk/record counters, Lance row count, and hot-index events.

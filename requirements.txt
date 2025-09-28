@@ -1,2 +1,12 @@
-requests
+fastapi
+uvicorn
+lancedb
+pyarrow
+hnswlib
+numpy
+tiktoken
+openai
+pydantic
+pydantic-settings
 python-dotenv
+pytest

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.venv/
+.env
+.env.local
+
+# Project data directories
+memory_db/
+hot_index/
+logs/
+dlq/
+
+# OS
+.DS_Store
