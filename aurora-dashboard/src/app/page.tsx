@@ -9,7 +9,10 @@ import { ConnectionStatus } from '@/components/ConnectionStatus';
 import { AnalyticsPanel } from '@/components/AnalyticsPanel';
 import { InteractionGuide } from '@/components/InteractionGuide';
 import { ClientOnly } from '@/components/ClientOnly';
-import { Brain, Heart, Zap, Database, Settings, Activity, Palette } from 'lucide-react';
+import { StartConversationLanding } from '@/components/StartConversationLanding';
+import { MicSelectBtn, CameraSelectBtn } from '@/components/cvi/components/device-select';
+import { LocalVideoStream } from '@/components/LocalVideoStream';
+import { Brain, Heart, Zap, Database, Settings, Activity, Palette, MessageCircle, User } from 'lucide-react';
 
 interface LiveMetrics {
   relationship_level: number;
@@ -42,20 +45,39 @@ export default function Dashboard() {
 
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeView, setActiveView] = useState<'main' | 'analytics' | 'settings' | 'orb'>('main');
+  const [activeView, setActiveView] = useState<'main' | 'analytics' | 'settings' | 'orb' | 'start'>('start');
   const [userId, setUserId] = useState('default_user');
   const [mounted, setMounted] = useState(false);
+  const [currentConversationUrl, setCurrentConversationUrl] = useState<string | null>(null);
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/metrics');
+      const response = await fetch('http://localhost:8000/api/metrics', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Add timeout to prevent hanging
+        signal: AbortSignal.timeout(5000)
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setMetrics(data);
         setConnected(true);
+        console.log('✅ Metrics fetched successfully:', data);
+      } else {
+        console.warn('⚠️ Backend responded with status:', response.status);
+        setConnected(false);
       }
     } catch (error) {
-      console.error('Failed to fetch metrics:', error);
+      if (error.name === 'AbortError') {
+        console.warn('⏰ Backend request timed out - server may be starting up');
+      } else if (error.message.includes('Failed to fetch')) {
+        console.warn('🔌 Backend not available - make sure final_aurora.py is running');
+      } else {
+        console.error('❌ Failed to fetch metrics:', error);
+      }
       setConnected(false);
     } finally {
       setLoading(false);
@@ -72,9 +94,15 @@ export default function Dashboard() {
     }
 
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 2000); // Update every 2 seconds
+    const interval = setInterval(fetchMetrics, 5000); // Update every 5 seconds to reduce load
     return () => clearInterval(interval);
   }, []);
+
+  const handleConversationStart = (conversationData: any) => {
+    setCurrentConversationUrl(conversationData.conversation_url);
+    setActiveView('main');
+    console.log('🚀 Conversation started, switching to main view:', conversationData);
+  };
 
   // Don't render until mounted to avoid hydration mismatch
   if (!mounted) {
@@ -90,163 +118,332 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden relative" suppressHydrationWarning>
-      {/* Animated background grid */}
-      <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900">
-        <div className="absolute inset-0 neural-grid opacity-20" />
+      {/* Tesla/Gemini-inspired animated background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-950 via-black to-gray-950">
+        <div className="absolute inset-0 neural-grid opacity-10" />
+
+        {/* Gemini-style gradient orbs */}
+        <motion.div
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-purple-500/10 via-cyan-500/10 to-blue-500/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1, 1.2, 1],
+            opacity: [0.1, 0.2, 0.1],
+          }}
+          transition={{
+            duration: 8,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+
+        <motion.div
+          className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 rounded-full blur-3xl"
+          animate={{
+            scale: [1.2, 1, 1.2],
+            opacity: [0.1, 0.15, 0.1],
+          }}
+          transition={{
+            duration: 10,
+            repeat: Infinity,
+            ease: "easeInOut",
+            delay: 2
+          }}
+        />
+
+        {/* Tesla-style subtle grid overlay */}
+        <div className="absolute inset-0 opacity-5">
+          <svg width="100%" height="100%" className="absolute inset-0">
+            <defs>
+              <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+                <path d="M 60 0 L 0 0 0 60" fill="none" stroke="cyan" strokeWidth="0.5"/>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#grid)" />
+          </svg>
+        </div>
       </div>
 
-      {/* Tesla-style header */}
+      {/* Minimal Top Bar with Navigation and Logo */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 flex justify-between items-center p-6 border-b border-gray-800/50 backdrop-blur-sm"
+        className="relative z-10 flex justify-between items-center p-6"
       >
-        <div className="flex items-center space-x-4">
-          <motion.div
-            animate={{ rotate: metrics.conversation_active ? 360 : 0 }}
-            transition={{ duration: 2, repeat: metrics.conversation_active ? Infinity : 0 }}
-            className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center justify-center"
-          >
-            <Brain className="w-4 h-4" />
-          </motion.div>
-          <div>
-            <h1 className="text-2xl font-light tracking-wide">AURORA</h1>
-            <p className="text-gray-400 text-sm">Neural Interface Dashboard</p>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 bg-black/40 rounded-lg p-1">
+        {/* Tesla/Gemini-style Navigation */}
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-1 bg-black/50 backdrop-blur-md rounded-xl p-1 border border-gray-700/30">
             {[
+              { key: 'start', icon: MessageCircle, label: 'Start' },
               { key: 'main', icon: Brain, label: 'Main' },
               { key: 'analytics', icon: Activity, label: 'Analytics' },
-              { key: 'orb', icon: Palette, label: 'Orb Demo' },
+              { key: 'orb', icon: Palette, label: 'Orb' },
               { key: 'settings', icon: Settings, label: 'Settings' }
             ].map(({ key, icon: Icon, label }) => (
               <motion.button
                 key={key}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setActiveView(key as any)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
+                className={`relative flex items-center space-x-2 px-4 py-2.5 rounded-lg transition-all duration-300 font-light text-sm ${
                   activeView === key
-                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-white/10'
+                    ? 'bg-gradient-to-r from-cyan-500/90 via-blue-500/90 to-purple-500/90 text-white shadow-lg shadow-cyan-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                <span className="text-sm font-medium">{label}</span>
+                <span>{label}</span>
+
+                {/* Tesla-style active indicator */}
+                {activeView === key && (
+                  <motion.div
+                    layoutId="activeNav"
+                    className="absolute inset-0 rounded-lg bg-gradient-to-r from-cyan-400/20 via-blue-500/20 to-purple-500/20"
+                    initial={false}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  />
+                )}
               </motion.button>
             ))}
           </div>
-          <ConnectionStatus connected={connected} loading={loading} />
+        </div>
+
+        {/* Aurora Logo - Top Right */}
+        <div className="flex items-center space-x-4">
+          <motion.div
+            animate={{
+              rotate: metrics.conversation_active ? 360 : 0,
+              scale: metrics.conversation_active ? [1, 1.1, 1] : 1
+            }}
+            transition={{
+              rotate: { duration: 3, repeat: metrics.conversation_active ? Infinity : 0, ease: "linear" },
+              scale: { duration: 2, repeat: metrics.conversation_active ? Infinity : 0 }
+            }}
+            className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/30"
+          >
+            <Brain className="w-4 h-4 text-white" />
+          </motion.div>
+          <div>
+            <h1 className="text-xl font-extralight tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
+              AURORA
+            </h1>
+          </div>
         </div>
       </motion.div>
 
       {/* Main content area */}
       <div className="relative z-10 p-6 h-[calc(100vh-100px)]">
+        {activeView === 'start' && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="h-full"
+          >
+            <StartConversationLanding
+              onConversationStart={handleConversationStart}
+              userId={userId}
+            />
+          </motion.div>
+        )}
+
         {activeView === 'main' && (
-          <div className="flex flex-col h-full">
-            {/* Top row with metrics and orb */}
-            <div className="flex-1 flex items-center justify-center">
-              <div className="grid grid-cols-12 gap-6 w-full max-w-7xl">
-                {/* Left metrics panel */}
-                <motion.div
-                  initial={{ opacity: 0, x: -50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="col-span-3 space-y-4"
-                >
-                  <MetricCard
-                    title="Relationship"
-                    value={metrics.relationship_level}
-                    max={100}
-                    icon={<Heart className="w-5 h-5" />}
-                    color="from-pink-500 to-rose-500"
-                    trend={metrics.conversation_active ? 'up' : 'stable'}
-                  />
-                  <MetricCard
-                    title="Trust Level"
-                    value={metrics.trust_level}
-                    max={100}
-                    icon={<Database className="w-5 h-5" />}
-                    color="from-blue-500 to-cyan-500"
-                    trend={metrics.conversation_turns > 5 ? 'up' : 'stable'}
-                  />
-                </motion.div>
-
-                {/* Central avatar with real Tavus video */}
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.4 }}
-                  className="col-span-6 flex items-center justify-center"
-                >
-                  <ClientOnly fallback={
-                    <div className="w-80 h-80 rounded-full bg-black/80 flex items-center justify-center">
-                      <div className="text-cyan-400 font-mono">LOADING AVATAR...</div>
-                    </div>
-                  }>
-                    <CustomAuroraLayout
-                      metrics={metrics}
-                      connected={connected}
-                      userId={userId}
-                      onSpeechProcessed={(result) => {
-                        setMetrics(result.updated_metrics);
-                      }}
-                    />
-                  </ClientOnly>
-                </motion.div>
-
-                {/* Right metrics panel */}
-                <motion.div
-                  initial={{ opacity: 0, x: 50 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
-                  className="col-span-3 space-y-4"
-                >
-                  <MetricCard
-                    title="Emotional Sync"
-                    value={metrics.emotional_sync}
-                    max={100}
-                    icon={<Zap className="w-5 h-5" />}
-                    color="from-yellow-500 to-orange-500"
-                    trend={metrics.current_emotion !== 'neutral' ? 'up' : 'stable'}
-                  />
-                  <MetricCard
-                    title="Memory Depth"
-                    value={metrics.memory_depth}
-                    max={100}
-                    icon={<Brain className="w-5 h-5" />}
-                    color="from-purple-500 to-violet-500"
-                    trend={metrics.insights_count > 0 ? 'up' : 'stable'}
-                  />
-                </motion.div>
-              </div>
-            </div>
-
-            {/* Bottom insights panel */}
+          <div className="relative w-full h-full">
+            {/* MASSIVE Central Avatar - Full Screen */}
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="mt-6"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              className="absolute inset-0 flex items-center justify-center"
             >
-              <InsightPanel insights={metrics.recent_insights} currentTopic={metrics.current_topic} currentEmotion={metrics.current_emotion} />
+              <div className="w-full h-full max-w-none">
+                <ClientOnly fallback={
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-cyan-400 font-mono text-3xl animate-pulse">INITIALIZING AURORA...</div>
+                  </div>
+                }>
+                  <CustomAuroraLayout
+                    metrics={metrics}
+                    connected={connected}
+                    userId={userId}
+                    conversationUrl={currentConversationUrl}
+                    onSpeechProcessed={(result) => {
+                      setMetrics(result.updated_metrics);
+                    }}
+                  />
+                </ClientOnly>
+              </div>
             </motion.div>
 
-            {/* Interaction guide moved to bottom */}
+            {/* Right side panel - Floating over avatar */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8 }}
-              className="mt-4"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6 }}
+              className="absolute top-6 right-6 w-80 space-y-4 z-10"
             >
-              <InteractionGuide />
+              {/* Personal Video Stream */}
+              <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
+                <h3 className="text-sm font-light text-gray-300 mb-3 flex items-center space-x-2">
+                  <User className="w-4 h-4" />
+                  <span>Your Stream</span>
+                </h3>
+                <div className="aspect-video bg-gray-900/50 rounded-lg border border-gray-700/30 flex items-center justify-center relative overflow-hidden">
+                  <ClientOnly fallback={
+                    <div className="text-gray-500 text-sm">Loading camera...</div>
+                  }>
+                    {/* User's local video stream using CVI components */}
+                    <LocalVideoStream className="w-full h-full" />
+                  </ClientOnly>
+                </div>
+              </div>
+
+              {/* Compact Metrics */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-light text-gray-300 mb-3">Neural Metrics</h3>
+
+                <MetricCard
+                  title="Relationship"
+                  value={metrics.relationship_level}
+                  max={100}
+                  icon={<Heart className="w-4 h-4" />}
+                  color="from-pink-500 to-rose-500"
+                  trend={metrics.conversation_active ? 'up' : 'stable'}
+                />
+
+                <MetricCard
+                  title="Trust Level"
+                  value={metrics.trust_level}
+                  max={100}
+                  icon={<Database className="w-4 h-4" />}
+                  color="from-blue-500 to-cyan-500"
+                  trend={metrics.conversation_turns > 5 ? 'up' : 'stable'}
+                />
+
+                <MetricCard
+                  title="Emotional Sync"
+                  value={metrics.emotional_sync}
+                  max={100}
+                  icon={<Zap className="w-4 h-4" />}
+                  color="from-yellow-500 to-orange-500"
+                  trend={metrics.current_emotion !== 'neutral' ? 'up' : 'stable'}
+                />
+
+                <MetricCard
+                  title="Memory Depth"
+                  value={metrics.memory_depth}
+                  max={100}
+                  icon={<Brain className="w-4 h-4" />}
+                  color="from-purple-500 to-violet-500"
+                  trend={metrics.insights_count > 0 ? 'up' : 'stable'}
+                />
+              </div>
+            </motion.div>
+
+            {/* Left side panel - Floating over avatar */}
+            <motion.div
+              initial={{ opacity: 0, x: -50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.8 }}
+              className="absolute top-6 left-6 w-80 space-y-4 z-10"
+            >
+              {/* Connection Status */}
+              <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
+                <h3 className="text-sm font-light text-gray-300 mb-3">System Status</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Neural Link</span>
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></div>
+                      <span className="text-xs text-gray-300">{connected ? 'Online' : 'Offline'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Conversation</span>
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2 h-2 rounded-full ${metrics.conversation_active ? 'bg-cyan-400' : 'bg-gray-500'} animate-pulse`}></div>
+                      <span className="text-xs text-gray-300">{metrics.conversation_active ? 'Active' : 'Standby'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Metrics Preview */}
+              <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
+                <h3 className="text-sm font-light text-gray-300 mb-3">Neural Metrics</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Relationship</span>
+                    <span className="text-xs text-pink-400">{metrics.relationship_level.toFixed(0)}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Trust</span>
+                    <span className="text-xs text-blue-400">{metrics.trust_level.toFixed(0)}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Emotional Sync</span>
+                    <span className="text-xs text-yellow-400">{metrics.emotional_sync.toFixed(0)}%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Memory Depth</span>
+                    <span className="text-xs text-purple-400">{metrics.memory_depth.toFixed(0)}%</span>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
+
+      {/* Bottom Control Panel - Fixed at bottom center for main view */}
+      {activeView === 'main' && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20"
+        >
+          <div className="bg-black/50 backdrop-blur-xl border border-gray-700/30 rounded-2xl p-4">
+            <div className="flex items-center space-x-6">
+              {/* CVI Media Controls */}
+              <ClientOnly fallback={<div className="flex space-x-3">Loading controls...</div>}>
+                <div className="flex items-center space-x-3">
+                  {/* Microphone Control */}
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-12 h-12 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 hover:bg-green-500/30 transition-all"
+                  >
+                    <MicSelectBtn />
+                  </motion.div>
+
+                  {/* Camera Control */}
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-500/30 transition-all"
+                  >
+                    <CameraSelectBtn />
+                  </motion.div>
+
+                  {/* Settings Control */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-12 h-12 rounded-full bg-gray-500/20 border border-gray-500/30 flex items-center justify-center text-gray-400 hover:bg-gray-500/30 transition-all"
+                  >
+                    <Settings className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              </ClientOnly>
+
+              {/* Session Info */}
+              <div className="flex flex-col items-center">
+                <div className="text-xs text-gray-400 font-light">Neural Session</div>
+                <div className="text-sm text-cyan-400 font-mono">{userId}</div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
 
         {activeView === 'analytics' && (
           <motion.div
@@ -363,14 +560,55 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Ambient light effects */}
-      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 rounded-full blur-3xl animate-pulse" />
+      {/* Tesla-style status indicators */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="absolute bottom-6 right-6 flex flex-col space-y-2"
+      >
+        {/* Conversation Status */}
+        <motion.div
+          className="flex items-center space-x-2 bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-gray-700/30"
+          animate={{ opacity: metrics.conversation_active ? 1 : 0.7 }}
+        >
+          <motion.div
+            className={`w-2 h-2 rounded-full ${metrics.conversation_active ? 'bg-green-400' : 'bg-gray-500'}`}
+            animate={{
+              scale: metrics.conversation_active ? [1, 1.2, 1] : 1,
+              opacity: metrics.conversation_active ? [1, 0.7, 1] : 1
+            }}
+            transition={{
+              duration: 2,
+              repeat: metrics.conversation_active ? Infinity : 0
+            }}
+          />
+          <span className="text-xs text-gray-400 font-light">
+            {metrics.conversation_active ? 'Active' : 'Standby'}
+          </span>
+        </motion.div>
 
-      {/* Status indicators */}
-      <div className="absolute bottom-6 right-6 flex space-x-2">
-        <div className={`w-3 h-3 rounded-full ${metrics.conversation_active ? 'bg-green-400 animate-pulse' : 'bg-gray-600'}`} />
-        <div className={`w-3 h-3 rounded-full ${connected ? 'bg-blue-400 animate-pulse' : 'bg-red-400'}`} />
-      </div>
+        {/* Connection Status */}
+        <motion.div
+          className="flex items-center space-x-2 bg-black/50 backdrop-blur-md rounded-lg px-3 py-2 border border-gray-700/30"
+          animate={{ opacity: connected ? 1 : 0.7 }}
+        >
+          <motion.div
+            className={`w-2 h-2 rounded-full ${connected ? 'bg-cyan-400' : 'bg-red-400'}`}
+            animate={{
+              scale: connected ? [1, 1.2, 1] : 1,
+              opacity: connected ? [1, 0.7, 1] : [1, 0.5, 1]
+            }}
+            transition={{
+              duration: connected ? 3 : 1,
+              repeat: Infinity
+            }}
+          />
+          <span className="text-xs text-gray-400 font-light">
+            {connected ? 'Neural Link' : 'Disconnected'}
+          </span>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

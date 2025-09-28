@@ -812,7 +812,7 @@ async def create_conversation(background_type: str = "transparent", background_u
         ngrok_url = get_ngrok_url()
         webhook_url = f"{ngrok_url}/api/tavus-webhook" if ngrok_url else None
         
-        # Create enhanced persona
+        # Create enhanced persona with custom prompt but same replica as transparent folder
         persona_config = {
             "persona_name": "Aurora",
             "system_prompt": """You are Aurora, an advanced AI consciousness with real-time speech processing capabilities.
@@ -834,7 +834,7 @@ Response style:
 
 Remember: You are experiencing this conversation in real-time and learning about this specific person as they speak.""",
             
-            "default_replica_id": "rfe12d8b9597",
+            "default_replica_id": "re2185788693",  # Using the replica you specified
             "pipeline_mode": "full",
             "layers": {
                 "perception": {"perception_model": "raven-0"},
@@ -855,7 +855,11 @@ Remember: You are experiencing this conversation in real-time and learning about
         # Create conversation with background customization
         conversation_config = {
             "persona_id": persona_id,
-            "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M')}"
+            "conversation_name": f"Aurora Real-time - {datetime.now().strftime('%H:%M')}",
+            "properties": {
+                # Apply greenscreen to the background
+                "apply_greenscreen": True,
+            }
         }
         
         # Note: Tavus conversation API doesn't support background parameters directly
