@@ -36,8 +36,10 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
   useEffect(() => {
     const fetchLearningData = async () => {
       try {
-        // Try to fetch from backend
-        const response = await fetch('http://localhost:8000/api/learning-timeline', {
+        console.log(`🔍 Fetching learning timeline for user: ${userId}`);
+
+        // Try to fetch from backend with user ID
+        const response = await fetch(`http://localhost:8000/api/user/${userId}/timeline`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(5000)
@@ -45,15 +47,30 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
 
         if (response.ok) {
           const data = await response.json();
+          console.log('✅ Timeline data received:', data);
           setEvents(data.events || []);
           setTotalStats(data.stats || {});
         } else {
-          // Use mock data if backend not available
-          setEvents(generateMockTimeline());
-          setTotalStats({ conversations: 23, insights: 47, memories: 89, learning_score: 73.2 });
+          console.warn(`⚠️ Timeline endpoint responded with status: ${response.status}`);
+          // Try alternative endpoint
+          const altResponse = await fetch(`http://localhost:8000/api/analytics?user_id=${userId}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            signal: AbortSignal.timeout(5000)
+          });
+
+          if (altResponse.ok) {
+            const altData = await altResponse.json();
+            console.log('✅ Analytics data received:', altData);
+            // Convert analytics data to timeline format
+            setEvents(convertAnalyticsToTimeline(altData));
+            setTotalStats(extractStatsFromAnalytics(altData));
+          } else {
+            throw new Error('Both endpoints failed');
+          }
         }
       } catch (error) {
-        console.warn('Backend not available, using mock timeline data');
+        console.warn(`❌ Backend not available for user ${userId}, using mock timeline data`);
         setEvents(generateMockTimeline());
         setTotalStats({ conversations: 23, insights: 47, memories: 89, learning_score: 73.2 });
       } finally {
@@ -65,6 +82,53 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
     const interval = setInterval(fetchLearningData, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, [userId]);
+
+  const convertAnalyticsToTimeline = (analytics: any): LearningEvent[] => {
+    const events: LearningEvent[] = [];
+
+    if (analytics.conversation_history) {
+      analytics.conversation_history.forEach((conv: any, index: number) => {
+        events.push({
+          id: `conv_${index}`,
+          timestamp: conv.timestamp || new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
+          type: 'conversation',
+          title: `Conversation #${index + 1}`,
+          description: conv.summary || 'Conversation session',
+          metrics: {
+            relationship_level: conv.relationship_level || 0,
+            trust_level: conv.trust_level || 0,
+            emotional_sync: conv.emotional_sync || 0,
+            memory_depth: conv.memory_depth || 0,
+          },
+          details: conv.topics || []
+        });
+      });
+    }
+
+    if (analytics.insights) {
+      analytics.insights.forEach((insight: any, index: number) => {
+        events.push({
+          id: `insight_${index}`,
+          timestamp: insight.timestamp || new Date(Date.now() - index * 12 * 60 * 60 * 1000).toISOString(),
+          type: 'insight',
+          title: insight.title || 'New Insight Discovered',
+          description: insight.description || insight.content || 'Behavioral pattern identified',
+          details: [insight.category, `Confidence: ${insight.confidence || 'Unknown'}`]
+        });
+      });
+    }
+
+    return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  };
+
+  const extractStatsFromAnalytics = (analytics: any) => {
+    return {
+      conversations: analytics.conversation_history?.length || 0,
+      insights: analytics.insights?.length || 0,
+      memories: analytics.memory_entries?.length || 0,
+      learning_score: analytics.overall_score || 0
+    };
+  };
 
   const generateMockTimeline = (): LearningEvent[] => [
     {
@@ -167,11 +231,12 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-6 space-y-6"
-    >
+    <div className="h-full overflow-y-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-6 space-y-6"
+      >
       {/* Header with Stats */}
       <div className="space-y-4">
         <div className="flex items-center space-x-3">
@@ -302,6 +367,7 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
           </div>
         </div>
       </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }

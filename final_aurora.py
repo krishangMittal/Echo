@@ -367,6 +367,7 @@ def store_user_name(user_id: str, name: str):
         traits["name_extracted_at"] = now
 
         row["personality_traits"] = json.dumps(traits)
+        row["display_name"] = name  # Set the display_name field for direct access
         row["last_active"] = now
         # Note: display_name field will be added dynamically by LanceDB if not in schema
 
@@ -378,27 +379,43 @@ def store_user_name(user_id: str, name: str):
 
 def get_user_name(user_id: str) -> Optional[str]:
     if user_id in _user_name_cache:
+        print(f"🎯 Found name in cache for {user_id}: {_user_name_cache[user_id]}")
         return _user_name_cache[user_id]
     if not ensure_db() or users_table is None:
+        print(f"❌ Database not available for user {user_id}")
         return None
     try:
         df = users_table.to_pandas()
         if len(df) == 0:
+            print(f"❌ No users in database")
             return None
         hit = df[df['user_id'] == user_id]
         if len(hit) == 0:
+            print(f"❌ User {user_id} not found in database")
             return None
+        
+        user_data = hit.iloc[0].to_dict()
+        print(f"🔍 User data for {user_id}: {list(user_data.keys())}")
+        
         # try display_name then traits
-        name = hit.iloc[0].to_dict().get("display_name")
+        name = user_data.get("display_name")
+        print(f"🔍 display_name field: {name}")
         if not name:
-            traits = hit.iloc[0].to_dict().get("personality_traits")
+            traits = user_data.get("personality_traits")
+            print(f"🔍 personality_traits: {traits}")
             if traits:
                 try:
-                    name = json.loads(traits).get("name")
-                except Exception:
+                    traits_dict = json.loads(traits)
+                    name = traits_dict.get("name")
+                    print(f"🔍 name from traits: {name}")
+                except Exception as e:
+                    print(f"❌ Error parsing traits: {e}")
                     name = None
         if name:
             _user_name_cache[user_id] = name
+            print(f"✅ Found and cached name for {user_id}: {name}")
+        else:
+            print(f"❌ No name found for {user_id}")
         return name
     except Exception as e:
         print(f"❌ Error reading user name: {e}")
@@ -440,6 +457,7 @@ def build_context_from_db(user_id: str) -> str:
     try:
         # First try to get name from users table, then from semantic memory
         name = recall_user_name_fast(user_id)
+        print(f"🔍 Name recall for {user_id}: {name}")
         
         # If no name found, check if this is "abiodun" user_id and set default
         if not name and user_id.lower() == "abiodun":
@@ -449,6 +467,7 @@ def build_context_from_db(user_id: str) -> str:
             print(f"👤 Set default name '{name}' for user {user_id}")
         elif not name:
             name = user_id  # fallback to user_id
+            print(f"👤 No stored name found, using user_id as fallback: {name}")
             
         stats = get_user_memory_stats(user_id) or {}
         total = stats.get("total_memories", 0)
@@ -1296,6 +1315,40 @@ async def get_conversation_context(user_id: str, current_text: str = ""):
     """Get conversational context for user"""
     context = get_contextual_memory_for_conversation(user_id, current_text)
     return context
+
+@app.get("/api/debug/user/{user_id}")
+async def debug_user_memory(user_id: str):
+    """Debug endpoint to check user memory and name storage"""
+    try:
+        # Check if user exists
+        user_profile = get_or_create_user(user_id)
+        
+        # Check stored name
+        stored_name = get_user_name(user_id)
+        
+        # Check memory stats
+        memory_stats = get_user_memory_stats(user_id)
+        
+        # Check recent memories
+        recent_memories = search_semantic_memory(user_id, "conversation", top_k=3)
+        
+        # Build context
+        context = build_context_from_db(user_id)
+        
+        return {
+            "user_id": user_id,
+            "user_profile": user_profile,
+            "stored_name": stored_name,
+            "memory_stats": memory_stats,
+            "recent_memories": recent_memories,
+            "context": context,
+            "debug_info": {
+                "cache_keys": list(_user_name_cache.keys()),
+                "cache_for_user": _user_name_cache.get(user_id)
+            }
+        }
+    except Exception as e:
+        return {"error": str(e), "user_id": user_id}
 
 @app.post("/api/process-speech")
 async def process_speech(speech_data: dict):

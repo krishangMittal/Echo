@@ -208,9 +208,6 @@ export default function Dashboard() {
 
         {/* Aurora Logo - Top Right */}
         <div className="flex items-center space-x-4">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/30">
-            <Brain className="w-4 h-4 text-white" />
-          </div>
           <div>
             <h1 className="text-xl font-extralight tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
               AURORA
