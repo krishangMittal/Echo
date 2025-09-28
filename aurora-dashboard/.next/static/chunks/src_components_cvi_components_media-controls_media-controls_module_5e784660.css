@@ -1,0 +1,51 @@
+/* [project]/src/components/cvi/components/media-controls/media-controls.module.css [app-client] (css) */
+.media-controls-module__qnKwLW__deviceButton {
+  z-index: 10;
+  cursor: pointer;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: relative;
+}
+
+.media-controls-module__qnKwLW__deviceButtonIcon {
+  display: flex;
+}
+
+.media-controls-module__qnKwLW__deviceButton:disabled {
+  opacity: .5;
+}
+
+.media-controls-module__qnKwLW__srOnly {
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+}
+
+.media-controls-module__qnKwLW__screenShareButton {
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: relative;
+}
+
+/*# sourceMappingURL=src_components_cvi_components_media-controls_media-controls_module_5e784660.css.map*/

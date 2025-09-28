@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/Patron/Contacts/Desktop/Ghost%20in%20the%20Shell/aurora-dashboard/src/components/cvi/components/media-controls/media-controls.module.css"],"sourcesContent":["/* Device button styles */\n.deviceButton {\n  position: relative;\n  z-index: 10;\n  height: 3rem;\n  width: 3rem;\n  border-radius: 9999px;\n  background-color: white;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n  border: 1px solid transparent;\n  cursor: pointer;\n}\n\n.deviceButtonIcon {\n  display: flex;\n}\n\n.deviceButton:disabled {\n  opacity: 0.5;\n}\n\n/* Screen reader only text */\n.srOnly {\n  position: absolute;\n  width: 1px;\n  height: 1px;\n  padding: 0;\n  margin: -1px;\n  overflow: hidden;\n  clip: rect(0, 0, 0, 0);\n  white-space: nowrap;\n  border-width: 0;\n}\n\n.screenShareButton {\n\tcursor: pointer;\n\tposition: relative;\n\theight: 3rem;\n\twidth: 3rem;\n\tdisplay: flex;\n\talign-items: center;\n\tjustify-content: center;\n\tborder-radius: 9999px;\n\tbackdrop-filter: blur(4px);\n\tbackground-color: rgba(255, 255, 255, 0.2);\n\tborder: 1px solid rgba(255, 255, 255, 0.2);\n}"],"names":[],"mappings":"AACA;;;;;;;;;;;;;;AAcA;;;;AAIA;;;;AAKA;;;;;;;;;;;;AAYA","debugId":null}}]
+}

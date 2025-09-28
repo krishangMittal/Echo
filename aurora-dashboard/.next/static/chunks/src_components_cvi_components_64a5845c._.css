@@ -1,0 +1,376 @@
+/* [project]/src/components/cvi/components/device-select/device-select.module.css [app-client] (css) */
+.device-select-module__Lfm8da__selectDevice {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(0, 0, 0, 0);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  width: 5.5rem;
+  height: 3rem;
+  padding: 0 2rem 0 .75rem;
+}
+
+.device-select-module__Lfm8da__selectDevice::-ms-expand {
+  display: none;
+}
+
+.device-select-module__Lfm8da__selectDevice option {
+  color: rgba(0, 0, 0, 0);
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.device-select-module__Lfm8da__selectDevice:focus {
+  outline: none;
+}
+
+.device-select-module__Lfm8da__deviceButtonContainer {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__deviceButton {
+  z-index: 10;
+  cursor: pointer;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.device-select-module__Lfm8da__deviceButtonIcon {
+  display: flex;
+}
+
+.device-select-module__Lfm8da__deviceButton:disabled {
+  opacity: .5;
+}
+
+.device-select-module__Lfm8da__srOnly {
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+}
+
+.device-select-module__Lfm8da__controlsContainer {
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  display: flex;
+}
+
+.device-select-module__Lfm8da__selectDeviceContainer {
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__selectArrow {
+  pointer-events: none;
+  align-items: center;
+  height: 100%;
+  display: flex;
+  position: absolute;
+  right: 1rem;
+}
+
+.device-select-module__Lfm8da__screenShareButton {
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: relative;
+}
+
+/* [project]/src/components/cvi/components/audio-wave/audio-wave.module.css [app-client] (css) */
+.audio-wave-module__-BreAa__container {
+  will-change: transform;
+  border: 1px solid #fff;
+  border-radius: 9999px;
+  width: 1.5rem;
+  height: 1.5rem;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.audio-wave-module__-BreAa__waveContainer {
+  justify-content: center;
+  align-items: center;
+  gap: .125rem;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.audio-wave-module__-BreAa__bar {
+  will-change: height;
+  background-color: #fff;
+  border-radius: 9999px;
+  width: .25rem;
+  height: .25rem;
+  transition: height .2s ease-out;
+  transform: translateZ(0);
+}
+
+.audio-wave-module__-BreAa__barInactive {
+  width: .25rem !important;
+  height: .25rem !important;
+}
+
+/* [project]/src/components/cvi/components/conversation/conversation.module.css [app-client] (css) */
+.conversation-module__tdVKqW__container {
+  text-align: center;
+  aspect-ratio: 9 / 16;
+  background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%) 0 0 / 400% 400%;
+  border-radius: .5rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-height: 90vh;
+  animation: 15s infinite conversation-module__tdVKqW__gradient;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__container {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+.conversation-module__tdVKqW__errorContainer {
+  color: #fff;
+  text-align: center;
+  background: rgba(248, 250, 252, .08);
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__videoContainer {
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__footer {
+  z-index: 20;
+  position: absolute;
+  bottom: 1.5rem;
+  left: 0;
+  right: 0;
+}
+
+.conversation-module__tdVKqW__footerControls {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__leaveButton {
+  color: #fff;
+  cursor: pointer;
+  background: #ef4444 linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border: none;
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  font-size: 16px;
+  transition: all .3s;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__leaveButton:hover {
+  opacity: .8;
+}
+
+.conversation-module__tdVKqW__leaveButtonIcon {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__mainVideoContainer {
+  background: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__mainVideoContainerScreenSharing {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__mainVideo {
+  object-position: center;
+  width: 100%;
+  height: 100%;
+  transition: all .3s;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  object-fit: cover !important;
+}
+
+.conversation-module__tdVKqW__mainVideoScreenSharing {
+  object-fit: contain !important;
+}
+
+.conversation-module__tdVKqW__mainVideoHidden {
+  display: none;
+}
+
+.conversation-module__tdVKqW__previewVideoContainer {
+  aspect-ratio: 16 / 9;
+  z-index: 10;
+  background: rgba(2, 6, 23, .3);
+  border-radius: 1rem;
+  width: 11rem;
+  max-height: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__previewVideoContainer {
+    max-height: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .conversation-module__tdVKqW__previewVideoContainer {
+    width: 17.875rem;
+  }
+}
+
+.conversation-module__tdVKqW__previewVideoContainerVertical {
+  width: 6rem;
+  height: 40.5rem;
+}
+
+.conversation-module__tdVKqW__previewVideoContainerHidden {
+  background: none;
+  display: none;
+}
+
+.conversation-module__tdVKqW__previewVideo {
+  width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__previewVideo {
+    max-height: 100%;
+  }
+}
+
+.conversation-module__tdVKqW__previewVideoVertical {
+  object-fit: cover;
+  width: 6rem;
+  height: 40.5rem;
+}
+
+.conversation-module__tdVKqW__previewVideoHidden {
+  display: none;
+}
+
+.conversation-module__tdVKqW__mainVideoContainer {
+  width: 100%;
+  height: 100%;
+}
+
+.conversation-module__tdVKqW__selfViewContainer {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: .75rem;
+  display: flex;
+  position: absolute;
+  bottom: 5rem;
+  left: 1rem;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__selfViewContainer {
+    bottom: 1rem;
+  }
+}
+
+.conversation-module__tdVKqW__waitingContainer {
+  color: #fff;
+  background: none;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  position: relative;
+}
+
+@keyframes conversation-module__tdVKqW__gradient {
+  0% {
+    background-position: 0%;
+  }
+
+  50% {
+    background-position: 100%;
+  }
+
+  100% {
+    background-position: 0%;
+  }
+}
+
+.conversation-module__tdVKqW__audioWaveContainer {
+  position: absolute;
+  bottom: .5rem;
+  right: .5rem;
+}
+
+/*# sourceMappingURL=src_components_cvi_components_64a5845c._.css.map*/

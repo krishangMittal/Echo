@@ -1,0 +1,202 @@
+/* [project]/src/components/cvi/components/device-select/device-select.module.css [app-client] (css) */
+.device-select-module__Lfm8da__selectDevice {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(0, 0, 0, 0);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  width: 5.5rem;
+  height: 3rem;
+  padding: 0 2rem 0 .75rem;
+}
+
+.device-select-module__Lfm8da__selectDevice::-ms-expand {
+  display: none;
+}
+
+.device-select-module__Lfm8da__selectDevice option {
+  color: rgba(0, 0, 0, 0);
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.device-select-module__Lfm8da__selectDevice:focus {
+  outline: none;
+}
+
+.device-select-module__Lfm8da__deviceButtonContainer {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__deviceButton {
+  z-index: 10;
+  cursor: pointer;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.device-select-module__Lfm8da__deviceButtonIcon {
+  display: flex;
+}
+
+.device-select-module__Lfm8da__deviceButton:disabled {
+  opacity: .5;
+}
+
+.device-select-module__Lfm8da__srOnly {
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+}
+
+.device-select-module__Lfm8da__controlsContainer {
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  display: flex;
+}
+
+.device-select-module__Lfm8da__selectDeviceContainer {
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__selectArrow {
+  pointer-events: none;
+  align-items: center;
+  height: 100%;
+  display: flex;
+  position: absolute;
+  right: 1rem;
+}
+
+.device-select-module__Lfm8da__screenShareButton {
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: relative;
+}
+
+/* [project]/src/components/aurora-conversation.css [app-client] (css) */
+.aurora-conversation {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .container {
+  background: none !important;
+  border-radius: 50% !important;
+}
+
+.aurora-conversation .videoContainer {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .footer {
+  display: none !important;
+}
+
+.aurora-conversation .mainVideoContainer {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .selfViewContainer {
+  display: none !important;
+}
+
+.aurora-conversation .mainVideo {
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.aurora-conversation .waitingContainer {
+  color: #00d9ff !important;
+  background: none !important;
+  border-radius: 50% !important;
+  justify-content: center !important;
+  align-items: center !important;
+  font-family: SF Mono, monospace !important;
+  display: flex !important;
+}
+
+.aurora-conversation .errorContainer {
+  color: #ff6b6b !important;
+  background: rgba(220, 38, 38, .1) !important;
+  border: 1px solid rgba(220, 38, 38, .3) !important;
+  border-radius: 8px !important;
+  margin: 8px !important;
+  padding: 12px !important;
+  font-size: 12px !important;
+}
+
+.aurora-conversation audio {
+  display: none !important;
+}
+
+.aurora-conversation .loading {
+  color: #00d9ff !important;
+  background: none !important;
+}
+
+.aurora-conversation video {
+  object-fit: cover !important;
+  background: none !important;
+  border-radius: 50% !important;
+  transform: scale(1.1) !important;
+}
+
+.aurora-conversation iframe, .aurora-conversation div {
+  border-radius: inherit !important;
+}
+
+.aurora-conversation [data-daily] {
+  border-radius: 50% !important;
+}
+
+.aurora-conversation {
+  z-index: 1 !important;
+}
+
+/*# sourceMappingURL=src_components_57b9e555._.css.map*/

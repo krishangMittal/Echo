@@ -1,0 +1,36 @@
+/* [project]/src/components/cvi/components/audio-wave/audio-wave.module.css [app-client] (css) */
+.audio-wave-module__-BreAa__container {
+  will-change: transform;
+  border: 1px solid #fff;
+  border-radius: 9999px;
+  width: 1.5rem;
+  height: 1.5rem;
+  overflow: hidden;
+  transform: translateZ(0);
+}
+
+.audio-wave-module__-BreAa__waveContainer {
+  justify-content: center;
+  align-items: center;
+  gap: .125rem;
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+.audio-wave-module__-BreAa__bar {
+  will-change: height;
+  background-color: #fff;
+  border-radius: 9999px;
+  width: .25rem;
+  height: .25rem;
+  transition: height .2s ease-out;
+  transform: translateZ(0);
+}
+
+.audio-wave-module__-BreAa__barInactive {
+  width: .25rem !important;
+  height: .25rem !important;
+}
+
+/*# sourceMappingURL=src_components_cvi_components_audio-wave_audio-wave_module_css_bad6b30c._.single.css.map*/

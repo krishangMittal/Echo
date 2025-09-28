@@ -1,0 +1,227 @@
+/* [project]/src/components/cvi/components/conversation/conversation.module.css [app-client] (css) */
+.conversation-module__tdVKqW__container {
+  text-align: center;
+  aspect-ratio: 9 / 16;
+  background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%) 0 0 / 400% 400%;
+  border-radius: .5rem;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-height: 90vh;
+  animation: 15s infinite conversation-module__tdVKqW__gradient;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__container {
+    aspect-ratio: 16 / 9;
+  }
+}
+
+.conversation-module__tdVKqW__errorContainer {
+  color: #fff;
+  text-align: center;
+  background: rgba(248, 250, 252, .08);
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__videoContainer {
+  z-index: 5;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__footer {
+  z-index: 20;
+  position: absolute;
+  bottom: 1.5rem;
+  left: 0;
+  right: 0;
+}
+
+.conversation-module__tdVKqW__footerControls {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__leaveButton {
+  color: #fff;
+  cursor: pointer;
+  background: #ef4444 linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  border: none;
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  font-size: 16px;
+  transition: all .3s;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__leaveButton:hover {
+  opacity: .8;
+}
+
+.conversation-module__tdVKqW__leaveButtonIcon {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__mainVideoContainer {
+  background: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.conversation-module__tdVKqW__mainVideoContainerScreenSharing {
+  justify-content: center;
+  align-items: center;
+  display: flex;
+}
+
+.conversation-module__tdVKqW__mainVideo {
+  object-position: center;
+  width: 100%;
+  height: 100%;
+  transition: all .3s;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  object-fit: cover !important;
+}
+
+.conversation-module__tdVKqW__mainVideoScreenSharing {
+  object-fit: contain !important;
+}
+
+.conversation-module__tdVKqW__mainVideoHidden {
+  display: none;
+}
+
+.conversation-module__tdVKqW__previewVideoContainer {
+  aspect-ratio: 16 / 9;
+  z-index: 10;
+  background: rgba(2, 6, 23, .3);
+  border-radius: 1rem;
+  width: 11rem;
+  max-height: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__previewVideoContainer {
+    max-height: 100%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .conversation-module__tdVKqW__previewVideoContainer {
+    width: 17.875rem;
+  }
+}
+
+.conversation-module__tdVKqW__previewVideoContainerVertical {
+  width: 6rem;
+  height: 40.5rem;
+}
+
+.conversation-module__tdVKqW__previewVideoContainerHidden {
+  background: none;
+  display: none;
+}
+
+.conversation-module__tdVKqW__previewVideo {
+  width: 100%;
+  height: auto;
+  max-height: 120px;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__previewVideo {
+    max-height: 100%;
+  }
+}
+
+.conversation-module__tdVKqW__previewVideoVertical {
+  object-fit: cover;
+  width: 6rem;
+  height: 40.5rem;
+}
+
+.conversation-module__tdVKqW__previewVideoHidden {
+  display: none;
+}
+
+.conversation-module__tdVKqW__mainVideoContainer {
+  width: 100%;
+  height: 100%;
+}
+
+.conversation-module__tdVKqW__selfViewContainer {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: .75rem;
+  display: flex;
+  position: absolute;
+  bottom: 5rem;
+  left: 1rem;
+}
+
+@media (min-width: 768px) {
+  .conversation-module__tdVKqW__selfViewContainer {
+    bottom: 1rem;
+  }
+}
+
+.conversation-module__tdVKqW__waitingContainer {
+  color: #fff;
+  background: none;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.5rem;
+  font-weight: 600;
+  display: flex;
+  position: relative;
+}
+
+@keyframes conversation-module__tdVKqW__gradient {
+  0% {
+    background-position: 0%;
+  }
+
+  50% {
+    background-position: 100%;
+  }
+
+  100% {
+    background-position: 0%;
+  }
+}
+
+.conversation-module__tdVKqW__audioWaveContainer {
+  position: absolute;
+  bottom: .5rem;
+  right: .5rem;
+}
+
+/*# sourceMappingURL=src_components_cvi_components_conversation_conversation_module_css_bad6b30c._.single.css.map*/

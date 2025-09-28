@@ -1,0 +1,73 @@
+/* [project]/src/components/aurora-conversation.css [app-client] (css) */
+.aurora-conversation {
+  isolation: isolate;
+  filter: hue-rotate() saturate(1.2) contrast(1.1) brightness(1.1);
+  background: none !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation iframe {
+  filter: hue-rotate() saturate(1.3) contrast(1.2) brightness(1.1) drop-shadow(0 0 10px rgba(0, 255, 0, .3));
+  object-fit: cover !important;
+  background: none !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation * {
+  background: none !important;
+}
+
+.aurora-conversation .daily-iframe-container {
+  background: none !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .daily-iframe {
+  object-fit: cover !important;
+  background: none !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.aurora-conversation iframe[src*="tavus.daily.co"] {
+  filter: hue-rotate() saturate(1.4) contrast(1.3) brightness(1.2) drop-shadow(0 0 15px rgba(0, 255, 0, .4));
+  object-fit: cover !important;
+  transform-origin: center !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+  transform: scale(1.1) !important;
+}
+
+.aurora-conversation video {
+  filter: hue-rotate() saturate(1.3) contrast(1.2) brightness(1.1);
+  object-fit: cover !important;
+  background: none !important;
+  border-radius: 50% !important;
+}
+
+.aurora-conversation:before {
+  content: "";
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 100%);
+  border-radius: 50%;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+/*# sourceMappingURL=src_components_aurora-conversation_9b12d8bc.css.map*/

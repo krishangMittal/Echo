@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 1, "column": 0}, "map": {"version":3,"sources":["turbopack:///[project]/src/components/cvi/components/audio-wave/audio-wave.module.css"],"sourcesContent":[".container {\n\toverflow: hidden;\n\tborder: 1px solid white;\n\twidth: 1.5rem;\n\theight: 1.5rem;\n\tborder-radius: 9999px;\n\twill-change: transform;\n\ttransform: translateZ(0);\n}\n\n.waveContainer {\n\tdisplay: flex;\n\tjustify-content: center;\n\talign-items: center;\n\tgap: 0.125rem;\n\twidth: 100%;\n\theight: 100%;\n}\n\n.bar {\n\twidth: 0.25rem;\n\theight: 0.25rem;\n\tbackground-color: white;\n\tborder-radius: 9999px;\n\ttransition: height 200ms ease-out;\n\twill-change: height;\n\ttransform: translateZ(0);\n}\n\n.barInactive {\n\twidth: 0.25rem !important;\n\theight: 0.25rem !important;\n}\n"],"names":[],"mappings":"AAAA;;;;;;;;;;AAUA;;;;;;;;;AASA;;;;;;;;;;AAUA"}}]
+}

@@ -1,0 +1,88 @@
+/* [project]/src/components/aurora-conversation.css [app-client] (css) */
+.aurora-conversation {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .container {
+  background: none !important;
+  border-radius: 50% !important;
+}
+
+.aurora-conversation .videoContainer {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .footer {
+  display: none !important;
+}
+
+.aurora-conversation .mainVideoContainer {
+  background: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+.aurora-conversation .selfViewContainer {
+  display: none !important;
+}
+
+.aurora-conversation .mainVideo {
+  object-fit: cover !important;
+  border-radius: 50% !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.aurora-conversation .waitingContainer {
+  color: #00d9ff !important;
+  background: none !important;
+  border-radius: 50% !important;
+  justify-content: center !important;
+  align-items: center !important;
+  font-family: SF Mono, monospace !important;
+  display: flex !important;
+}
+
+.aurora-conversation .errorContainer {
+  color: #ff6b6b !important;
+  background: rgba(220, 38, 38, .1) !important;
+  border: 1px solid rgba(220, 38, 38, .3) !important;
+  border-radius: 8px !important;
+  margin: 8px !important;
+  padding: 12px !important;
+  font-size: 12px !important;
+}
+
+.aurora-conversation audio {
+  display: none !important;
+}
+
+.aurora-conversation .loading {
+  color: #00d9ff !important;
+  background: none !important;
+}
+
+.aurora-conversation video {
+  object-fit: cover !important;
+  background: none !important;
+  border-radius: 50% !important;
+  transform: scale(1.1) !important;
+}
+
+.aurora-conversation iframe, .aurora-conversation div {
+  border-radius: inherit !important;
+}
+
+.aurora-conversation [data-daily] {
+  border-radius: 50% !important;
+}
+
+.aurora-conversation {
+  z-index: 1 !important;
+}
+
+/*# sourceMappingURL=src_components_aurora-conversation_css_bad6b30c._.single.css.map*/

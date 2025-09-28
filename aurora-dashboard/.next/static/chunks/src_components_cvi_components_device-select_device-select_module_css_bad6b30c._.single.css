@@ -1,0 +1,115 @@
+/* [project]/src/components/cvi/components/device-select/device-select.module.css [app-client] (css) */
+.device-select-module__Lfm8da__selectDevice {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(0, 0, 0, 0);
+  box-sizing: border-box;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  width: 5.5rem;
+  height: 3rem;
+  padding: 0 2rem 0 .75rem;
+}
+
+.device-select-module__Lfm8da__selectDevice::-ms-expand {
+  display: none;
+}
+
+.device-select-module__Lfm8da__selectDevice option {
+  color: rgba(0, 0, 0, 0);
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.device-select-module__Lfm8da__selectDevice:focus {
+  outline: none;
+}
+
+.device-select-module__Lfm8da__deviceButtonContainer {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__deviceButton {
+  z-index: 10;
+  cursor: pointer;
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.device-select-module__Lfm8da__deviceButtonIcon {
+  display: flex;
+}
+
+.device-select-module__Lfm8da__deviceButton:disabled {
+  opacity: .5;
+}
+
+.device-select-module__Lfm8da__srOnly {
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  position: absolute;
+  overflow: hidden;
+}
+
+.device-select-module__Lfm8da__controlsContainer {
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  display: flex;
+}
+
+.device-select-module__Lfm8da__selectDeviceContainer {
+  align-items: center;
+  display: flex;
+  position: relative;
+}
+
+.device-select-module__Lfm8da__selectArrow {
+  pointer-events: none;
+  align-items: center;
+  height: 100%;
+  display: flex;
+  position: absolute;
+  right: 1rem;
+}
+
+.device-select-module__Lfm8da__screenShareButton {
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  background-color: rgba(255, 255, 255, .2);
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 9999px;
+  justify-content: center;
+  align-items: center;
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  position: relative;
+}
+
+/*# sourceMappingURL=src_components_cvi_components_device-select_device-select_module_css_bad6b30c._.single.css.map*/
