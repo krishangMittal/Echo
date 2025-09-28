@@ -36,41 +36,72 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
   useEffect(() => {
     const fetchLearningData = async () => {
       try {
-        console.log(`🔍 Fetching learning timeline for user: ${userId}`);
+        console.log(`🔍 Fetching real data for user: ${userId}`);
 
-        // Try to fetch from backend with user ID
-        const response = await fetch(`http://localhost:8000/api/user/${userId}/timeline`, {
+        // Check if backend is available first
+        const healthCheck = await fetch(`http://localhost:8000/api/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(3000)
+        });
+
+        if (!healthCheck.ok) {
+          throw new Error('Backend not responding');
+        }
+
+        // Fetch user profile with conversations and insights
+        const userResponse = await fetch(`http://localhost:8000/api/users/${userId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(5000)
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log('✅ Timeline data received:', data);
-          setEvents(data.events || []);
-          setTotalStats(data.stats || {});
-        } else {
-          console.warn(`⚠️ Timeline endpoint responded with status: ${response.status}`);
-          // Try alternative endpoint
-          const altResponse = await fetch(`http://localhost:8000/api/analytics?user_id=${userId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            signal: AbortSignal.timeout(5000)
-          });
+        // Fetch memory stats
+        const memoryResponse = await fetch(`http://localhost:8000/api/user/${userId}/memory-stats`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000)
+        });
 
-          if (altResponse.ok) {
-            const altData = await altResponse.json();
-            console.log('✅ Analytics data received:', altData);
-            // Convert analytics data to timeline format
-            setEvents(convertAnalyticsToTimeline(altData));
-            setTotalStats(extractStatsFromAnalytics(altData));
-          } else {
-            throw new Error('Both endpoints failed');
+        // Fetch recent speeches
+        const speechesResponse = await fetch(`http://localhost:8000/api/speeches`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          console.log('✅ User data received:', userData);
+
+          let memoryStats = {};
+          if (memoryResponse.ok) {
+            memoryStats = await memoryResponse.json();
+            console.log('✅ Memory stats received:', memoryStats);
           }
+
+          let speechesData = { speeches: [], current_metrics: {} };
+          if (speechesResponse.ok) {
+            speechesData = await speechesResponse.json();
+            console.log('✅ Speeches data received:', speechesData);
+          }
+
+          // Convert real data to timeline format
+          const timeline = convertRealDataToTimeline(userData, memoryStats, speechesData);
+          const stats = extractRealStats(userData, memoryStats, speechesData);
+
+          setEvents(timeline);
+          setTotalStats(stats);
+        } else {
+          console.warn(`⚠️ User endpoint responded with status: ${userResponse.status}`);
+          throw new Error('User endpoint failed');
         }
       } catch (error) {
         console.warn(`❌ Backend not available for user ${userId}, using mock timeline data`);
+        // Don't log the full error to avoid console spam
+        if (error instanceof Error && !error.message.includes('fetch')) {
+          console.error('Error details:', error);
+        }
         setEvents(generateMockTimeline());
         setTotalStats({ conversations: 23, insights: 47, memories: 89, learning_score: 73.2 });
       } finally {
@@ -82,6 +113,98 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
     const interval = setInterval(fetchLearningData, 30000); // Update every 30 seconds
     return () => clearInterval(interval);
   }, [userId]);
+
+  const convertRealDataToTimeline = (userData: any, memoryStats: any, speechesData: any): LearningEvent[] => {
+    const events: LearningEvent[] = [];
+
+    // Add conversations as timeline events
+    if (userData.conversations && userData.conversations.length > 0) {
+      userData.conversations.forEach((conv: any, index: number) => {
+        events.push({
+          id: `conv_${conv.conversation_id || index}`,
+          timestamp: conv.created_at || conv.timestamp || new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString(),
+          type: 'conversation',
+          title: `Conversation Session`,
+          description: conv.summary || `Session with ${conv.current_topic || 'general discussion'}`,
+          metrics: {
+            relationship_level: conv.relationship_level || 0,
+            trust_level: conv.trust_level || 0,
+            emotional_sync: conv.emotional_sync || 0,
+            memory_depth: conv.memory_depth || 0,
+          },
+          details: [
+            `Topic: ${conv.current_topic || 'General'}`,
+            `Emotion: ${conv.current_emotion || 'Neutral'}`,
+            `Turns: ${conv.conversation_turns || 0}`
+          ]
+        });
+      });
+    }
+
+    // Add insights as timeline events
+    if (userData.insights && userData.insights.length > 0) {
+      userData.insights.forEach((insight: any, index: number) => {
+        events.push({
+          id: `insight_${insight.insight_id || index}`,
+          timestamp: insight.timestamp || new Date(Date.now() - index * 12 * 60 * 60 * 1000).toISOString(),
+          type: 'insight',
+          title: insight.insight_type || 'New Insight Discovered',
+          description: insight.content || 'Behavioral pattern identified',
+          details: [
+            `Category: ${insight.category || 'General'}`,
+            `Confidence: ${insight.confidence || 'Unknown'}`
+          ]
+        });
+      });
+    }
+
+    // Add memory milestones based on memory stats
+    if (memoryStats.total_memories > 0) {
+      events.push({
+        id: 'memory_milestone',
+        timestamp: new Date().toISOString(),
+        type: 'memory',
+        title: 'Memory Formation Milestone',
+        description: `${memoryStats.total_memories} memories stored`,
+        details: [
+          `Recent topics: ${memoryStats.recent_topics?.join(', ') || 'Various'}`,
+          `Memory score: ${memoryStats.avg_importance || 'N/A'}`
+        ]
+      });
+    }
+
+    // Add relationship milestones based on user profile
+    if (userData.user_profile && userData.user_profile.avg_relationship_level > 25) {
+      events.push({
+        id: 'relationship_milestone',
+        timestamp: userData.user_profile.last_active || new Date().toISOString(),
+        type: 'relationship_milestone',
+        title: 'Trust Threshold Reached',
+        description: 'Deeper relationship established',
+        metrics: {
+          relationship_level: userData.user_profile.avg_relationship_level,
+          trust_level: userData.user_profile.avg_trust_level,
+          emotional_sync: userData.user_profile.avg_emotional_sync,
+          memory_depth: 0
+        },
+        details: [
+          `Communication style: ${userData.user_profile.communication_style || 'Unknown'}`,
+          `Dominant emotions: ${userData.user_profile.dominant_emotions || 'Neutral'}`
+        ]
+      });
+    }
+
+    return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  };
+
+  const extractRealStats = (userData: any, memoryStats: any, speechesData: any) => {
+    return {
+      conversations: userData.conversations?.length || 0,
+      insights: userData.insights?.length || 0,
+      memories: memoryStats.total_memories || 0,
+      learning_score: userData.user_profile?.avg_relationship_level || 0
+    };
+  };
 
   const convertAnalyticsToTimeline = (analytics: any): LearningEvent[] => {
     const events: LearningEvent[] = [];
