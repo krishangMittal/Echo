@@ -70,6 +70,10 @@ memory_db/
 hot_index/
 dlq/
 
+# Aurora database files
+aurora_db/
+*.lance/
+
 # Memory and conversation files
 transcript_memories_*.json
 aurora_conversation_*.json
