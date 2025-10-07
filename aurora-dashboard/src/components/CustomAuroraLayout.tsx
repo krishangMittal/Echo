@@ -121,6 +121,7 @@ export function CustomAuroraLayout({ metrics, connected, userId = 'default_user'
           conversationUrl={conversationUrl}
           className="w-full h-full"
           onLeave={handleConversationLeave}
+          userId={userId}
         />
 
 

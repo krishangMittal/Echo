@@ -40,7 +40,7 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
         console.log(`🔍 Fetching real data for user: ${userId}`);
 
         // Check if backend is available first
-        const healthCheck = await fetch(`http://localhost:8000/api/metrics`, {
+        const healthCheck = await fetch(`http://localhost:8000/api/metrics?user_id=${userId}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           signal: AbortSignal.timeout(3000)
@@ -53,58 +53,32 @@ export function LearningTimelineAnalytics({ userId = 'default_user' }: LearningT
         
         setBackendStatus('online');
 
-        // Fetch user profile with conversations and insights
-        const userResponse = await fetch(`http://localhost:8000/api/users/${userId}`, {
+        // Fetch complete timeline data from new endpoint
+        const timelineResponse = await fetch(`http://localhost:8000/api/user/${userId}/timeline`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000)
+          signal: AbortSignal.timeout(10000)
         });
 
-        // Fetch memory stats
-        const memoryResponse = await fetch(`http://localhost:8000/api/user/${userId}/memory-stats`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000)
-        });
+        if (timelineResponse.ok) {
+          const timelineData = await timelineResponse.json();
+          console.log('✅ Real timeline data received:', timelineData);
 
-        // Fetch recent speeches
-        const speechesResponse = await fetch(`http://localhost:8000/api/speeches`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          signal: AbortSignal.timeout(5000)
-        });
-
-        if (userResponse.ok) {
-          const userData = await userResponse.json();
-          console.log('✅ User data received:', userData);
-
-          let memoryStats = {};
-          if (memoryResponse.ok) {
-            memoryStats = await memoryResponse.json();
-            console.log('✅ Memory stats received:', memoryStats);
-          }
-
-          let speechesData = { speeches: [], current_metrics: {} };
-          if (speechesResponse.ok) {
-            speechesData = await speechesResponse.json();
-            console.log('✅ Speeches data received:', speechesData);
-          }
-
-          // Convert real data to timeline format
-          const timeline = convertRealDataToTimeline(userData, memoryStats, speechesData);
-          const stats = extractRealStats(userData, memoryStats, speechesData);
+          // Use the actual timeline events from backend
+          const timeline = timelineData.timeline_events || [];
+          const stats = timelineData.stats || { conversations: 0, insights: 0, memories: 0, learning_score: 0 };
 
           console.log('📊 Real analytics data loaded:', {
             timelineEvents: timeline.length,
             stats: stats,
-            userData: userData
+            userProfile: timelineData.user_profile
           });
 
           setEvents(timeline);
           setTotalStats(stats);
         } else {
-          console.warn(`⚠️ User endpoint responded with status: ${userResponse.status}`);
-          throw new Error('User endpoint failed');
+          console.warn(`⚠️ Timeline endpoint responded with status: ${timelineResponse.status}`);
+          throw new Error('Timeline endpoint failed');
         }
       } catch (error) {
         console.warn(`❌ Backend not available for user ${userId}, using mock timeline data`);

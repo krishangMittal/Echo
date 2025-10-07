@@ -26,6 +26,16 @@ interface LiveMetrics {
   recent_insights: string[];
   conversation_active: boolean;
   last_updated: string;
+  // Enhanced trend tracking
+  relationship_trend?: 'up' | 'down' | 'stable';
+  trust_trend?: 'up' | 'down' | 'stable';
+  emotional_trend?: 'up' | 'down' | 'stable';
+  memory_trend?: 'up' | 'down' | 'stable';
+  // Additional psychological metrics
+  authenticity_level?: number;
+  stress_level?: number;
+  growth_level?: number;
+  behavioral_patterns?: string[];
 }
 
 export default function Dashboard() {
@@ -52,7 +62,8 @@ export default function Dashboard() {
 
   const fetchMetrics = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/metrics', {
+      console.log(`🔍 Fetching metrics for user: ${userId}`);
+      const response = await fetch(`http://localhost:8000/api/metrics?user_id=${userId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -63,9 +74,10 @@ export default function Dashboard() {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Received metrics data:', data);
         setMetrics(data);
         setConnected(true);
-        console.log('✅ Metrics fetched successfully:', data);
+        console.log('✅ Metrics updated in state:', data);
       } else {
         console.warn('⚠️ Backend responded with status:', response.status);
         setConnected(false);
@@ -89,19 +101,45 @@ export default function Dashboard() {
 
     // Get user name from localStorage
     const userName = localStorage.getItem('aurora_user_name');
+    console.log('🔍 Found userName in localStorage:', userName);
     if (userName) {
-      setUserId(userName.toLowerCase().replace(/\s+/g, '_'));
+      const newUserId = userName.toLowerCase().replace(/\s+/g, '_');
+      console.log('🔍 Setting userId to:', newUserId);
+      setUserId(newUserId);
+    } else {
+      console.log('🔍 No userName found, using default_user');
+      // For testing, let's manually set to krishang if no userName found
+      console.log('🔍 Manually setting userId to krishang for testing');
+      setUserId('krishang');
     }
 
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 5000); // Update every 5 seconds to reduce load
     return () => clearInterval(interval);
-  }, []);
+  }, [userId]); // Re-run when userId changes
 
   const handleConversationStart = (conversationData: any) => {
-    setCurrentConversationUrl(conversationData.conversation_url);
+    console.log('🎯 handleConversationStart called with:', conversationData);
+
+    // Add user parameters to the conversation URL
+    const url = new URL(conversationData.conversation_url);
+    url.searchParams.set('user_id', conversationData.user_id || userId);
+    if (conversationData.user_name) {
+      url.searchParams.set('user_name', conversationData.user_name);
+    }
+
+    const finalUrl = url.toString();
+    console.log('🔗 Setting conversation URL:', finalUrl);
+
+    setCurrentConversationUrl(finalUrl);
     setActiveView('main');
-    console.log('🚀 Conversation started, switching to main view:', conversationData);
+
+    console.log('🚀 Conversation started with user params:', {
+      user_id: conversationData.user_id || userId,
+      user_name: conversationData.user_name,
+      url: finalUrl,
+      activeView: 'main'
+    });
   };
 
   // Don't render until mounted to avoid hydration mismatch
@@ -259,12 +297,12 @@ export default function Dashboard() {
               </div>
             </motion.div>
 
-            {/* Right side panel - Floating over avatar */}
+            {/* Right side panel - Floating over avatar with better positioning */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6 }}
-              className="absolute top-6 right-6 w-80 space-y-4 z-10"
+              className="absolute top-6 right-6 w-80 space-y-4 z-20"
             >
               {/* Personal Video Stream */}
               <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
@@ -292,7 +330,7 @@ export default function Dashboard() {
                   max={100}
                   icon={<Heart className="w-4 h-4" />}
                   color="from-pink-500 to-rose-500"
-                  trend={metrics.conversation_active ? 'up' : 'stable'}
+                  trend={metrics.relationship_trend || 'stable'}
                 />
 
                 <MetricCard
@@ -301,7 +339,7 @@ export default function Dashboard() {
                   max={100}
                   icon={<Database className="w-4 h-4" />}
                   color="from-blue-500 to-cyan-500"
-                  trend={metrics.conversation_turns > 5 ? 'up' : 'stable'}
+                  trend={metrics.trust_trend || 'stable'}
                 />
 
                 <MetricCard
@@ -310,7 +348,7 @@ export default function Dashboard() {
                   max={100}
                   icon={<Zap className="w-4 h-4" />}
                   color="from-yellow-500 to-orange-500"
-                  trend={metrics.current_emotion !== 'neutral' ? 'up' : 'stable'}
+                  trend={metrics.emotional_trend || 'stable'}
                 />
 
                 <MetricCard
@@ -319,17 +357,17 @@ export default function Dashboard() {
                   max={100}
                   icon={<Brain className="w-4 h-4" />}
                   color="from-purple-500 to-violet-500"
-                  trend={metrics.insights_count > 0 ? 'up' : 'stable'}
+                  trend={metrics.memory_trend || 'stable'}
                 />
               </div>
             </motion.div>
 
-            {/* Left side panel - Floating over avatar */}
+            {/* Left side panel - Floating over avatar with enhanced metrics */}
             <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.8 }}
-              className="absolute top-6 left-6 w-80 space-y-4 z-10"
+              className="absolute top-6 left-6 w-80 space-y-4 z-20"
             >
               {/* Connection Status */}
               <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
@@ -352,25 +390,84 @@ export default function Dashboard() {
                 </div>
               </div>
 
+              {/* Enhanced Psychological Metrics */}
+              <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
+                <h3 className="text-sm font-light text-gray-300 mb-3">Psychological Profile</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Authenticity</span>
+                    <span className="text-xs text-green-400">{(metrics.authenticity_level || 5).toFixed(1)}/10</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Stress Level</span>
+                    <span className="text-xs text-orange-400">{(metrics.stress_level || 3).toFixed(1)}/10</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Growth</span>
+                    <span className="text-xs text-cyan-400">{(metrics.growth_level || 5).toFixed(1)}/10</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Emotion</span>
+                    <span className="text-xs text-purple-400 capitalize">{metrics.current_emotion}</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Quick Metrics Preview */}
               <div className="bg-black/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-4">
                 <h3 className="text-sm font-light text-gray-300 mb-3">Neural Metrics</h3>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Relationship</span>
-                    <span className="text-xs text-pink-400">{metrics.relationship_level.toFixed(0)}%</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-pink-400">{metrics.relationship_level.toFixed(0)}%</span>
+                      <span className={`text-xs ${
+                        metrics.relationship_trend === 'up' ? 'text-green-400' :
+                        metrics.relationship_trend === 'down' ? 'text-red-400' : 'text-gray-400'
+                      }`}>
+                        {metrics.relationship_trend === 'up' ? '↗' :
+                         metrics.relationship_trend === 'down' ? '↘' : '→'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Trust</span>
-                    <span className="text-xs text-blue-400">{metrics.trust_level.toFixed(0)}%</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-blue-400">{metrics.trust_level.toFixed(0)}%</span>
+                      <span className={`text-xs ${
+                        metrics.trust_trend === 'up' ? 'text-green-400' :
+                        metrics.trust_trend === 'down' ? 'text-red-400' : 'text-gray-400'
+                      }`}>
+                        {metrics.trust_trend === 'up' ? '↗' :
+                         metrics.trust_trend === 'down' ? '↘' : '→'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Emotional Sync</span>
-                    <span className="text-xs text-yellow-400">{metrics.emotional_sync.toFixed(0)}%</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-yellow-400">{metrics.emotional_sync.toFixed(0)}%</span>
+                      <span className={`text-xs ${
+                        metrics.emotional_trend === 'up' ? 'text-green-400' :
+                        metrics.emotional_trend === 'down' ? 'text-red-400' : 'text-gray-400'
+                      }`}>
+                        {metrics.emotional_trend === 'up' ? '↗' :
+                         metrics.emotional_trend === 'down' ? '↘' : '→'}
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-400">Memory Depth</span>
-                    <span className="text-xs text-purple-400">{metrics.memory_depth.toFixed(0)}%</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-purple-400">{metrics.memory_depth.toFixed(0)}%</span>
+                      <span className={`text-xs ${
+                        metrics.memory_trend === 'up' ? 'text-green-400' :
+                        metrics.memory_trend === 'down' ? 'text-red-400' : 'text-gray-400'
+                      }`}>
+                        {metrics.memory_trend === 'up' ? '↗' :
+                         metrics.memory_trend === 'down' ? '↘' : '→'}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -378,24 +475,25 @@ export default function Dashboard() {
           </div>
         )}
 
-      {/* Bottom Control Panel - Fixed at bottom center for main view */}
+      {/* Top Right Control Panel - Fixed at top right for main view */}
       {activeView === 'main' && (
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.8 }}
-          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-20"
+          className="fixed top-6 right-6 z-20"
         >
-          <div className="bg-black/50 backdrop-blur-xl border border-gray-700/30 rounded-2xl p-4">
-            <div className="flex items-center space-x-6">
+          <div className="bg-black/50 backdrop-blur-xl border border-gray-700/30 rounded-2xl p-3">
+            <div className="flex items-center space-x-3">
               {/* CVI Media Controls */}
-              <ClientOnly fallback={<div className="flex space-x-3">Loading controls...</div>}>
-                <div className="flex items-center space-x-3">
+              <ClientOnly fallback={<div className="flex space-x-2">Loading controls...</div>}>
+                <div className="flex items-center space-x-2">
                   {/* Microphone Control */}
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-12 h-12 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 hover:bg-green-500/30 transition-all"
+                    className="w-10 h-10 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-400 hover:bg-green-500/30 transition-all"
+                    title="Microphone"
                   >
                     <MicSelectBtn />
                   </motion.div>
@@ -404,7 +502,8 @@ export default function Dashboard() {
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-12 h-12 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-500/30 transition-all"
+                    className="w-10 h-10 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400 hover:bg-blue-500/30 transition-all"
+                    title="Camera"
                   >
                     <CameraSelectBtn />
                   </motion.div>
@@ -413,9 +512,10 @@ export default function Dashboard() {
                   <motion.button
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
-                    className="w-12 h-12 rounded-full bg-gray-500/20 border border-gray-500/30 flex items-center justify-center text-gray-400 hover:bg-gray-500/30 transition-all"
+                    className="w-10 h-10 rounded-full bg-gray-500/20 border border-gray-500/30 flex items-center justify-center text-gray-400 hover:bg-gray-500/30 transition-all"
+                    title="Settings"
                   >
-                    <Settings className="w-5 h-5" />
+                    <Settings className="w-4 h-4" />
                   </motion.button>
                 </div>
               </ClientOnly>

@@ -51,9 +51,15 @@ export function StartConversationLanding({ onConversationStart, userId = 'defaul
       console.log('✅ Conversation created:', result);
       setLastConversation(result);
 
-      // Notify parent component
+      // Notify parent component with additional user data
       if (onConversationStart) {
-        onConversationStart(result);
+        const conversationData = {
+          ...result,
+          user_id: customUserId,
+          user_name: userName || undefined
+        };
+        console.log('📞 Calling onConversationStart with:', conversationData);
+        onConversationStart(conversationData);
       }
 
       return result;

@@ -343,12 +343,28 @@ interface TransparentAvatarVideoProps {
   conversationUrl?: string | null;
   className?: string;
   onLeave?: () => void;
+  userId?: string;
 }
+
+// Emotion to color mapping
+const EMOTION_COLORS = {
+  angry: { bg: 'rgba(239, 68, 68, 0.3)', glow: '#ef4444' },      // Red for angry
+  frustrated: { bg: 'rgba(239, 68, 68, 0.3)', glow: '#ef4444' }, // Red for frustrated
+  sad: { bg: 'rgba(99, 102, 241, 0.3)', glow: '#6366f1' },       // Blue for sad
+  happy: { bg: 'rgba(34, 197, 94, 0.3)', glow: '#22c55e' },      // Green for happy
+  excited: { bg: 'rgba(34, 197, 94, 0.3)', glow: '#22c55e' },    // Green for excited
+  curious: { bg: 'rgba(168, 85, 247, 0.3)', glow: '#a855f7' },   // Purple for curious
+  neutral: { bg: 'rgba(234, 179, 8, 0.3)', glow: '#eab308' },    // Yellow for neutral
+  calm: { bg: 'rgba(34, 197, 94, 0.3)', glow: '#22c55e' },       // Green for calm
+  confused: { bg: 'rgba(234, 179, 8, 0.3)', glow: '#eab308' },   // Yellow for confused
+  default: { bg: 'rgba(234, 179, 8, 0.3)', glow: '#eab308' }     // Yellow default
+};
 
 export const TransparentAvatarVideo: React.FC<TransparentAvatarVideoProps> = ({
   conversationUrl,
   className = "",
-  onLeave
+  onLeave,
+  userId
 }) => {
   const remoteParticipantIds = useParticipantIds({ filter: "remote" });
   const localParticipantId = useLocalSessionId();
@@ -357,6 +373,25 @@ export const TransparentAvatarVideo: React.FC<TransparentAvatarVideoProps> = ({
   const [isJoining, setIsJoining] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [speechMessages, setSpeechMessages] = useState<string[]>([]);
+  const [currentEmotion, setCurrentEmotion] = useState<string>('neutral');
+  const [glowIntensity, setGlowIntensity] = useState(0.5);
+
+  // Extract user_id from conversation URL or use provided userId
+  const extractedUserId = useMemo(() => {
+    if (conversationUrl) {
+      try {
+        const url = new URL(conversationUrl);
+        const userIdFromUrl = url.searchParams.get('user_id');
+        if (userIdFromUrl) {
+          console.log('🆔 Extracted user_id from conversation URL:', userIdFromUrl);
+          return userIdFromUrl;
+        }
+      } catch (e) {
+        console.warn('Failed to parse conversation URL:', e);
+      }
+    }
+    return userId || 'default_user';
+  }, [conversationUrl, userId]);
 
   // Auto-join the call when conversation URL is provided
   useEffect(() => {
@@ -405,24 +440,38 @@ export const TransparentAvatarVideo: React.FC<TransparentAvatarVideoProps> = ({
 
         if (role === 'user' && speech) {
           console.log('🗣️ User speech detected:', speech);
+          console.log('🆔 Using user_id for speech processing:', extractedUserId);
           setSpeechMessages(prev => [...prev, `You said: ${speech}`]);
 
-          // Send to backend for processing (exact same as aurora_client.html)
+          // Send to backend for processing with correct user_id
           fetch('http://localhost:8000/api/process-speech', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: speech })
+            body: JSON.stringify({
+              text: speech,
+              user_id: extractedUserId
+            })
           })
           .then(response => response.json())
           .then(result => {
             console.log('✅ Speech processed:', result);
             setSpeechMessages(prev => [...prev, 'Speech processed and analyzed!']);
 
-            // Show analysis results (exact same as aurora_client.html)
+            // Show analysis results and update mood
             if (result.speech_record?.analysis) {
               const analysis = result.speech_record.analysis;
               const analysisText = `Analysis: ${analysis.topic} | ${analysis.emotion} | Importance: ${analysis.importance}/10`;
               setSpeechMessages(prev => [...prev, analysisText]);
+
+              // Update current emotion for mood glow
+              const emotion = analysis.emotion?.toLowerCase() || 'neutral';
+              console.log('🎭 Emotion detected:', emotion);
+              setCurrentEmotion(emotion);
+
+              // Set glow intensity based on importance (higher importance = more intense glow)
+              const intensity = Math.min(Math.max(analysis.importance / 10, 0.3), 1.0);
+              setGlowIntensity(intensity);
+              console.log('✨ Glow intensity set to:', intensity);
             }
           })
           .catch(err => {
@@ -471,13 +520,36 @@ export const TransparentAvatarVideo: React.FC<TransparentAvatarVideoProps> = ({
     onLeave?.();
   };
 
+  // Get current emotion colors
+  const emotionColor = EMOTION_COLORS[currentEmotion as keyof typeof EMOTION_COLORS] || EMOTION_COLORS.default;
+
   return (
     <div className={`relative ${className}`}>
+      {/* Mood-based background glow */}
+      <div
+        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-out"
+        style={{
+          background: `radial-gradient(circle at center, ${emotionColor.bg} 0%, transparent 70%)`,
+          boxShadow: `inset 0 0 100px ${emotionColor.glow}40, 0 0 60px ${emotionColor.glow}${Math.floor(glowIntensity * 60).toString(16).padStart(2, '0')}`,
+          opacity: glowIntensity * 0.8,
+        }}
+      />
+
       {remoteParticipantIds.length > 0 ? (
-        <TransparentVideo
-          id={remoteParticipantIds[0]}
-          className="w-full h-full"
-        />
+        <div className="relative z-10">
+          <TransparentVideo
+            id={remoteParticipantIds[0]}
+            className="w-full h-full"
+          />
+          {/* Avatar glow ring */}
+          <div
+            className="absolute inset-4 rounded-full pointer-events-none transition-all duration-1000 ease-out"
+            style={{
+              boxShadow: `0 0 40px ${emotionColor.glow}${Math.floor(glowIntensity * 80).toString(16).padStart(2, '0')}, inset 0 0 20px ${emotionColor.glow}30`,
+              border: `2px solid ${emotionColor.glow}${Math.floor(glowIntensity * 40).toString(16).padStart(2, '0')}`,
+            }}
+          />
+        </div>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
           <div className="text-cyan-400 font-mono animate-pulse text-center space-y-2">
@@ -501,12 +573,29 @@ export const TransparentAvatarVideo: React.FC<TransparentAvatarVideoProps> = ({
         </div>
       )}
 
-      {/* Speech Messages Overlay */}
+      {/* Mood Indicator - Positioned at bottom left */}
+      <div className="absolute bottom-6 left-6 z-10">
+        <div className="bg-black/60 backdrop-blur-md border border-gray-600/30 rounded-lg p-2 flex items-center space-x-2">
+          <div
+            className="w-3 h-3 rounded-full transition-all duration-1000"
+            style={{
+              backgroundColor: emotionColor.glow,
+              boxShadow: `0 0 8px ${emotionColor.glow}`,
+              opacity: glowIntensity,
+            }}
+          />
+          <div className="text-xs text-gray-300 font-mono capitalize">
+            {currentEmotion}
+          </div>
+        </div>
+      </div>
+
+      {/* Speech Messages Overlay - Positioned at bottom center to avoid side panels */}
       {speechMessages.length > 0 && (
-        <div className="absolute bottom-4 left-4 right-4 max-h-32 overflow-y-auto">
-          <div className="bg-black/80 backdrop-blur-md border border-cyan-500/30 rounded-lg p-3 space-y-1">
-            {speechMessages.slice(-5).map((message, index) => (
-              <div key={index} className="text-xs text-gray-300 font-mono">
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-96 max-h-24 overflow-y-auto z-10">
+          <div className="bg-black/60 backdrop-blur-md border border-cyan-500/30 rounded-lg p-3 space-y-1">
+            {speechMessages.slice(-3).map((message, index) => (
+              <div key={index} className="text-xs text-gray-300 font-mono text-center truncate">
                 {message}
               </div>
             ))}

@@ -401,12 +401,21 @@
 
         async function createConversation(token) {
             try {
-                const response = await fetch('http://localhost:8000/api/create-conversation', {
+                // Get user info from URL parameters or use defaults
+                const urlParams = new URLSearchParams(window.location.search);
+                const userId = urlParams.get('user_id') || 'default_user';
+                const userName = urlParams.get('user_name') || null;
+                
+                const response = await fetch('http://localhost:8000/api/create-conversation-with-user', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
-                    }
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        user_name: userName
+                    })
                 });
 
                 if (!response.ok) {
