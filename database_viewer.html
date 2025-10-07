@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aurora Database Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px 10px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab:hover {
+            background: #5a67d8;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .metric {
+            display: inline-block;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 20px;
+            border-left: 4px solid #667eea;
+        }
+
+        .metric strong {
+            color: #667eea;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .table th, .table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .insight-card {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .insight-text {
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+
+        .insight-meta {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .error {
+            background: #fee;
+            border-left: 4px solid #e53e3e;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+            color: #c53030;
+        }
+
+        .success {
+            background: #f0fff4;
+            border-left: 4px solid #38a169;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 0 5px 5px 0;
+            color: #2f855a;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s;
+        }
+
+        .refresh-btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+
+        .search-box {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .analytics-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .analytics-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .analytics-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Aurora Database Viewer</h1>
+            <p>Real-time monitoring of user data and conversation insights</p>
+        </div>
+
+        <div class="status-card">
+            <h3>Database Status</h3>
+            <div id="status-content">
+                <div class="loading">Loading database status...</div>
+            </div>
+            <button class="refresh-btn" onclick="loadDatabaseStatus()">Refresh Status</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('users')">Users</button>
+            <button class="tab" onclick="showTab('conversations')">Conversations</button>
+            <button class="tab" onclick="showTab('insights')">Insights</button>
+            <button class="tab" onclick="showTab('analytics')">Analytics</button>
+            <button class="tab" onclick="showTab('search')">Search</button>
+        </div>
+
+        <div id="users-tab" class="tab-content active">
+            <h3>User Profiles</h3>
+            <div id="users-content">
+                <div class="loading">Loading users...</div>
+            </div>
+            <button class="refresh-btn" onclick="loadUsers()">Refresh Users</button>
+        </div>
+
+        <div id="conversations-tab" class="tab-content">
+            <h3>Recent Conversations</h3>
+            <div id="conversations-content">
+                <div class="loading">Loading conversations...</div>
+            </div>
+            <button class="refresh-btn" onclick="loadRecentActivity()">Refresh Activity</button>
+        </div>
+
+        <div id="insights-tab" class="tab-content">
+            <h3>Recent Insights</h3>
+            <div id="insights-content">
+                <div class="loading">Loading insights...</div>
+            </div>
+            <button class="refresh-btn" onclick="loadRecentActivity()">Refresh Insights</button>
+        </div>
+
+        <div id="analytics-tab" class="tab-content">
+            <h3>Database Analytics</h3>
+            <div id="analytics-content">
+                <div class="loading">Loading analytics...</div>
+            </div>
+            <button class="refresh-btn" onclick="loadAnalytics()">Refresh Analytics</button>
+        </div>
+
+        <div id="search-tab" class="tab-content">
+            <h3>Semantic Search</h3>
+            <input type="text" class="search-box" id="search-query" placeholder="Search insights by topic, emotion, or content...">
+            <button class="refresh-btn" onclick="performSearch()">Search</button>
+            <div id="search-content">
+                <p>Enter a search query to find relevant insights using AI semantic matching.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        // Tab management
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+
+            // Load content if needed
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'conversations' || tabName === 'insights') loadRecentActivity();
+            if (tabName === 'analytics') loadAnalytics();
+        }
+
+        // Load database status
+        async function loadDatabaseStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/database/status`);
+                const status = await response.json();
+
+                let html = '';
+                if (status.database_connected) {
+                    html += '<div class="success">✅ Database connected successfully</div>';
+                } else {
+                    html += '<div class="error">❌ Database not connected</div>';
+                }
+
+                if (status.record_counts) {
+                    html += '<div style="margin-top: 15px;">';
+                    html += `<div class="metric"><strong>Users:</strong> ${status.record_counts.users}</div>`;
+                    html += `<div class="metric"><strong>Conversations:</strong> ${status.record_counts.conversations}</div>`;
+                    html += `<div class="metric"><strong>Insights:</strong> ${status.record_counts.insights}</div>`;
+                    html += `<div class="metric"><strong>Total Records:</strong> ${status.record_counts.total_records}</div>`;
+                    html += '</div>';
+                }
+
+                document.getElementById('status-content').innerHTML = html;
+            } catch (error) {
+                document.getElementById('status-content').innerHTML =
+                    `<div class="error">❌ Error loading status: ${error.message}</div>`;
+            }
+        }
+
+        // Load users data
+        async function loadUsers() {
+            try {
+                const response = await fetch(`${API_BASE}/database/tables`);
+                const data = await response.json();
+
+                let html = '';
+                if (data.tables && data.tables.users && data.tables.users.record_count > 0) {
+                    html += `<p>Found ${data.tables.users.record_count} users in database</p>`;
+
+                    // Show sample user if available
+                    if (data.tables.users.sample_record) {
+                        const user = data.tables.users.sample_record;
+                        html += `
+                            <div class="insight-card">
+                                <strong>Sample User: ${user.user_id}</strong><br>
+                                <div class="insight-meta">
+                                    Conversations: ${user.total_conversations} |
+                                    Relationship Level: ${user.avg_relationship_level?.toFixed(1)} |
+                                    Trust Level: ${user.avg_trust_level?.toFixed(1)}
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html = '<p>No users found in database yet. Start a conversation to create user data!</p>';
+                }
+
+                document.getElementById('users-content').innerHTML = html;
+            } catch (error) {
+                document.getElementById('users-content').innerHTML =
+                    `<div class="error">❌ Error loading users: ${error.message}</div>`;
+            }
+        }
+
+        // Load recent activity
+        async function loadRecentActivity() {
+            try {
+                const response = await fetch(`${API_BASE}/database/recent-activity`);
+                const activity = await response.json();
+
+                // Update conversations tab
+                let convHtml = '';
+                if (activity.recent_conversations && activity.recent_conversations.length > 0) {
+                    convHtml += '<table class="table"><tr><th>Conversation ID</th><th>User</th><th>Ended</th><th>Turns</th></tr>';
+                    activity.recent_conversations.forEach(conv => {
+                        convHtml += `
+                            <tr>
+                                <td>${conv.conversation_id}</td>
+                                <td>${conv.user_id}</td>
+                                <td>${new Date(conv.ended_at).toLocaleString()}</td>
+                                <td>${conv.total_turns}</td>
+                            </tr>
+                        `;
+                    });
+                    convHtml += '</table>';
+                } else {
+                    convHtml = '<p>No conversations found yet. Start processing speech to see conversations!</p>';
+                }
+                document.getElementById('conversations-content').innerHTML = convHtml;
+
+                // Update insights tab
+                let insightHtml = '';
+                if (activity.recent_insights && activity.recent_insights.length > 0) {
+                    activity.recent_insights.forEach(insight => {
+                        insightHtml += `
+                            <div class="insight-card">
+                                <div class="insight-text">${insight.insight_text}</div>
+                                <div class="insight-meta">
+                                    User: ${insight.user_id} |
+                                    Type: ${insight.insight_type} |
+                                    ${new Date(insight.timestamp).toLocaleString()}
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    insightHtml = '<p>No insights generated yet. Process meaningful speech to generate insights!</p>';
+                }
+                document.getElementById('insights-content').innerHTML = insightHtml;
+
+            } catch (error) {
+                document.getElementById('conversations-content').innerHTML =
+                    `<div class="error">❌ Error loading activity: ${error.message}</div>`;
+                document.getElementById('insights-content').innerHTML =
+                    `<div class="error">❌ Error loading activity: ${error.message}</div>`;
+            }
+        }
+
+        // Load analytics
+        async function loadAnalytics() {
+            try {
+                const response = await fetch(`${API_BASE}/database/tables`);
+                const data = await response.json();
+
+                let html = '<div class="analytics-grid">';
+
+                // Add analytics cards
+                if (data.tables) {
+                    const userCount = data.tables.users?.record_count || 0;
+                    const convCount = data.tables.conversations?.record_count || 0;
+                    const insightCount = data.tables.insights?.record_count || 0;
+
+                    html += `
+                        <div class="analytics-card">
+                            <div class="analytics-number">${userCount}</div>
+                            <div class="analytics-label">Total Users</div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-number">${convCount}</div>
+                            <div class="analytics-label">Conversations</div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-number">${insightCount}</div>
+                            <div class="analytics-label">Insights Generated</div>
+                        </div>
+                        <div class="analytics-card">
+                            <div class="analytics-number">${userCount + convCount + insightCount}</div>
+                            <div class="analytics-label">Total Records</div>
+                        </div>
+                    `;
+                }
+
+                html += '</div>';
+                document.getElementById('analytics-content').innerHTML = html;
+
+            } catch (error) {
+                document.getElementById('analytics-content').innerHTML =
+                    `<div class="error">❌ Error loading analytics: ${error.message}</div>`;
+            }
+        }
+
+        // Perform semantic search
+        async function performSearch() {
+            const query = document.getElementById('search-query').value.trim();
+            if (!query) return;
+
+            document.getElementById('search-content').innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/insights/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, limit: 10 })
+                });
+
+                const results = await response.json();
+
+                let html = `<p>Found ${results.results_count} results for: <strong>${query}</strong></p>`;
+
+                if (results.insights && results.insights.length > 0) {
+                    results.insights.forEach(insight => {
+                        html += `
+                            <div class="insight-card">
+                                <div class="insight-text">${insight.insight_text}</div>
+                                <div class="insight-meta">
+                                    User: ${insight.user_id} |
+                                    Category: ${insight.psychological_category} |
+                                    Confidence: ${(insight.confidence_score * 100).toFixed(1)}%
+                                </div>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += '<p>No matching insights found. Try a different search term.</p>';
+                }
+
+                document.getElementById('search-content').innerHTML = html;
+
+            } catch (error) {
+                document.getElementById('search-content').innerHTML =
+                    `<div class="error">❌ Search error: ${error.message}</div>`;
+            }
+        }
+
+        // Allow Enter key for search
+        document.getElementById('search-query').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            loadDatabaseStatus();
+            const activeTab = document.querySelector('.tab.active').textContent.toLowerCase();
+            if (activeTab === 'users') loadUsers();
+            if (activeTab === 'conversations' || activeTab === 'insights') loadRecentActivity();
+            if (activeTab === 'analytics') loadAnalytics();
+        }, 30000);
+
+        // Initial load
+        loadDatabaseStatus();
+        loadUsers();
+    </script>
+</body>
+</html>

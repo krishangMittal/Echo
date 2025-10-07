@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Aurora - Transparent Avatar Client</title>
+    <!-- Current conversation: https://tavus.daily.co/c5aebe6e46d214d2 -->
+    <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin: 0;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: auroraGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes auroraGlow {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .controls {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .token-input {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .token-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 14px;
+        }
+
+        .token-input input:focus {
+            outline: none;
+            border-color: #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #00ffff, #0080ff);
+            color: black;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(45deg, #00cccc, #0066cc);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4444, #cc0000);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(45deg, #cc3333, #990000);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 68, 68, 0.4);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .video-container {
+            position: relative;
+            width: 600px;
+            height: 400px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 20px;
+            border: 2px solid rgba(0, 255, 255, 0.3);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        #tavus-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: transparent;
+        }
+
+        #chroma-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            background: transparent;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            border-left: 4px solid #00ffff;
+            backdrop-filter: blur(10px);
+        }
+
+        .status.connected {
+            border-left-color: #00ff88;
+        }
+
+        .status.error {
+            border-left-color: #ff4444;
+        }
+
+        .loading-spinner {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 255, 255, 0.3);
+            border-top: 3px solid #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+
+        .chroma-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .chroma-controls label {
+            font-size: 12px;
+            color: #ccc;
+        }
+
+        .chroma-controls input[type="range"] {
+            width: 100px;
+        }
+
+        .chroma-controls input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .debug-info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            color: #00ff88;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AURORA</h1>
+        <p>Transparent Avatar Interface</p>
+    </div>
+
+    <div class="controls">
+        <div class="token-input">
+            <input 
+                type="text" 
+                id="tokenInput" 
+                placeholder="Enter your Tavus API token" 
+                value=""
+            />
+            <button class="btn btn-primary" id="startBtn" onclick="startCall()">
+                Start Call
+            </button>
+            <button class="btn btn-danger hidden" id="leaveBtn" onclick="leaveCall()">
+                Leave Call
+            </button>
+        </div>
+        
+        <div class="chroma-controls">
+            <label>Threshold:</label>
+            <input type="range" id="thresholdSlider" min="0" max="1" step="0.01" value="0.3">
+            <span id="thresholdValue">0.3</span>
+            
+            <label>Key Color:</label>
+            <input type="color" id="keyColorPicker" value="#03ff9c">
+            
+            <label>Enable Chroma Key:</label>
+            <input type="checkbox" id="chromaToggle" checked>
+        </div>
+    </div>
+
+    <div class="video-container">
+        <div class="loading-spinner hidden" id="loadingSpinner"></div>
+        <div class="debug-info hidden" id="debugInfo"></div>
+        <iframe id="tavus-iframe" class="hidden"></iframe>
+        <canvas id="chroma-canvas"></canvas>
+    </div>
+
+    <div class="status" id="status">
+        Ready to connect. Enter your Tavus API token and click "Start Call".
+    </div>
+
+    <script>
+        let call = null;
+        let conversationUrl = null;
+        let isConnected = false;
+        let videoElement = null;
+        let canvas = null;
+        let gl = null;
+        let program = null;
+        let texture = null;
+        let animationId = null;
+
+        // WebGL Shaders
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            attribute vec2 a_texCoord;
+            varying vec2 v_texCoord;
+            void main() {
+                gl_Position = vec4(a_position, 0, 1);
+                v_texCoord = vec2(a_texCoord.x, 1.0 - a_texCoord.y);
+            }
+        `;
+
+        const fragmentShaderSource = `
+            precision mediump float;
+            uniform sampler2D u_image;
+            varying vec2 v_texCoord;
+            uniform vec3 u_keyColor;
+            uniform float u_threshold;
+            void main() {
+                vec4 color = texture2D(u_image, v_texCoord);
+                float diff = length(color.rgb - u_keyColor);
+                gl_FragColor = diff < u_threshold ? vec4(0.0) : color;
+            }
+        `;
+
+        function initShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            return shader;
+        }
+
+        function initWebGL() {
+            canvas = document.getElementById('chroma-canvas');
+            gl = canvas.getContext('webgl', {
+                premultipliedAlpha: false,
+                alpha: true
+            });
+
+            if (!gl) {
+                console.error('WebGL not supported');
+                return false;
+            }
+
+            // Create shader program
+            const vertexShader = initShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+            const fragmentShader = initShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+            
+            program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            gl.useProgram(program);
+
+            // Set up buffers
+            const positionBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+
+            const texCoordBuffer = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+
+            // Set up attributes
+            const positionLocation = gl.getAttribLocation(program, "a_position");
+            const texCoordLocation = gl.getAttribLocation(program, "a_texCoord");
+
+            gl.enableVertexAttribArray(positionLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+            gl.enableVertexAttribArray(texCoordLocation);
+            gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+            gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+
+            // Create texture
+            texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+            return true;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16) / 255,
+                g: parseInt(result[2], 16) / 255,
+                b: parseInt(result[3], 16) / 255
+            } : null;
+        }
+
+        function applyChromaKey() {
+            if (!videoElement || !gl || !program || !texture) return;
+
+            if (videoElement.readyState === videoElement.HAVE_ENOUGH_DATA) {
+                // Resize canvas to match video
+                canvas.width = videoElement.videoWidth || 640;
+                canvas.height = videoElement.videoHeight || 480;
+                gl.viewport(0, 0, canvas.width, canvas.height);
+
+                // Update texture with video frame
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, videoElement);
+
+                // Set uniforms
+                const imageLocation = gl.getUniformLocation(program, "u_image");
+                const keyColorLocation = gl.getUniformLocation(program, "u_keyColor");
+                const thresholdLocation = gl.getUniformLocation(program, "u_threshold");
+
+                gl.uniform1i(imageLocation, 0);
+                
+                const keyColorHex = document.getElementById('keyColorPicker').value;
+                const keyColorRgb = hexToRgb(keyColorHex);
+                gl.uniform3f(keyColorLocation, keyColorRgb.r, keyColorRgb.g, keyColorRgb.b);
+                
+                const threshold = parseFloat(document.getElementById('thresholdSlider').value);
+                gl.uniform1f(thresholdLocation, threshold);
+
+                // Render
+                gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+            }
+
+            if (document.getElementById('chromaToggle').checked) {
+                animationId = requestAnimationFrame(applyChromaKey);
+            }
+        }
+
+        async function createConversation(token) {
+            try {
+                // Get user info from URL parameters or use defaults
+                const urlParams = new URLSearchParams(window.location.search);
+                const userId = urlParams.get('user_id') || 'default_user';
+                const userName = urlParams.get('user_name') || null;
+                
+                const response = await fetch('http://localhost:8000/api/create-conversation-with-user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        user_name: userName
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.conversation_url || `https://tavus.daily.co/${data.conversation_id}`;
+            } catch (error) {
+                console.error('Failed to create conversation:', error);
+                // Fallback to our existing conversation
+                return 'https://tavus.daily.co/c5aebe6e46d214d2';
+            }
+        }
+
+        async function startCall() {
+            const token = document.getElementById('tokenInput').value.trim();
+            if (!token) {
+                updateStatus('Please enter your Tavus API token', 'error');
+                return;
+            }
+
+            updateStatus('Creating conversation...', '');
+            document.getElementById('loadingSpinner').classList.remove('hidden');
+            document.getElementById('startBtn').disabled = true;
+
+            try {
+                // Create conversation
+                conversationUrl = await createConversation(token);
+                console.log('Using conversation URL:', conversationUrl);
+
+                // Initialize WebGL
+                if (!initWebGL()) {
+                    throw new Error('WebGL initialization failed');
+                }
+
+                // Create Daily call
+                call = window.Daily.createFrame();
+                
+                call.on('joined-meeting', () => {
+                    console.log('✅ Joined Tavus conversation');
+                    isConnected = true;
+                    updateStatus('Connected to Aurora! Setting up video processing...', 'connected');
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    document.getElementById('startBtn').classList.add('hidden');
+                    document.getElementById('leaveBtn').classList.remove('hidden');
+                    document.getElementById('debugInfo').classList.remove('hidden');
+                    document.getElementById('debugInfo').textContent = `Connected to: ${conversationUrl}`;
+                    
+                    // Try to set up video processing immediately
+                    setTimeout(setupVideoProcessing, 1000);
+                });
+
+                call.on('participant-joined', (event) => {
+                    console.log('Participant joined:', event.participant);
+                    if (event.participant.user_name === 'Aurora') {
+                        console.log('Aurora joined, setting up video processing...');
+                        // Wait for video stream to be available
+                        setTimeout(() => {
+                            setupVideoProcessing();
+                        }, 3000);
+                    }
+                });
+
+                call.on('track-started', (event) => {
+                    console.log('Track started:', event);
+                    if (event.participant && event.participant.user_name === 'Aurora' && event.track.kind === 'video') {
+                        console.log('Aurora video track started');
+                        setTimeout(() => {
+                            setupVideoProcessing();
+                        }, 1000);
+                    }
+                });
+
+                call.on('error', (error) => {
+                    console.error('Daily error:', error);
+                    updateStatus(`Connection error: ${error.message}`, 'error');
+                    document.getElementById('loadingSpinner').classList.add('hidden');
+                    document.getElementById('startBtn').disabled = false;
+                });
+
+                // Join the conversation
+                await call.join({ url: conversationUrl });
+
+            } catch (error) {
+                console.error('Failed to start call:', error);
+                updateStatus(`Failed to start call: ${error.message}`, 'error');
+                document.getElementById('loadingSpinner').classList.add('hidden');
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+
+        function leaveCall() {
+            if (call) {
+                call.leave();
+                call = null;
+            }
+            
+            isConnected = false;
+            conversationUrl = null;
+            videoElement = null;
+            
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+
+            updateStatus('Disconnected from Aurora.', '');
+            document.getElementById('startBtn').classList.remove('hidden');
+            document.getElementById('leaveBtn').classList.add('hidden');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('debugInfo').classList.add('hidden');
+            document.getElementById('tavus-iframe').classList.add('hidden');
+        }
+
+        function setupVideoProcessing() {
+            console.log('Setting up video processing...');
+            
+            // Method 1: Try to get video from Daily call directly
+            if (call && call.participants) {
+                const participants = call.participants();
+                console.log('Available participants:', participants);
+                
+                for (const [id, participant] of Object.entries(participants)) {
+                    if (participant.user_name === 'Aurora') {
+                        console.log('Found Aurora participant:', participant);
+                        
+                        // Try to get the video track
+                        const videoTrack = participant.videoTrack;
+                        if (videoTrack) {
+                            console.log('Found Aurora video track:', videoTrack);
+                            
+                            // Create a video element and set the track
+                            videoElement = document.createElement('video');
+                            videoElement.autoplay = true;
+                            videoElement.muted = true;
+                            videoElement.playsInline = true;
+                            videoElement.style.display = 'none';
+                            document.body.appendChild(videoElement);
+                            
+                            // Set the video track
+                            const stream = new MediaStream([videoTrack]);
+                            videoElement.srcObject = stream;
+                            
+                            videoElement.addEventListener('loadeddata', () => {
+                                console.log('Aurora video loaded, starting chroma key');
+                                updateStatus('Aurora video loaded! Processing transparent background...', 'connected');
+                                if (document.getElementById('chromaToggle').checked) {
+                                    applyChromaKey();
+                                }
+                            });
+                            
+                            videoElement.addEventListener('error', (e) => {
+                                console.error('Video element error:', e);
+                            });
+                            
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            // Method 2: Try to get video from DOM
+            const videos = document.querySelectorAll('video');
+            console.log('Found video elements:', videos.length);
+            
+            for (const video of videos) {
+                if (video.srcObject && video.srcObject.getVideoTracks().length > 0) {
+                    console.log('Found video with tracks:', video);
+                    videoElement = video;
+                    videoElement.addEventListener('loadeddata', () => {
+                        console.log('Video loaded, starting chroma key');
+                        updateStatus('Video loaded! Processing transparent background...', 'connected');
+                        if (document.getElementById('chromaToggle').checked) {
+                            applyChromaKey();
+                        }
+                    });
+                    return;
+                }
+            }
+            
+            console.log('No Aurora video found, will retry in 2 seconds...');
+            setTimeout(setupVideoProcessing, 2000);
+        }
+
+        function updateStatus(message, type) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
+
+        // Event listeners for controls
+        document.getElementById('thresholdSlider').addEventListener('input', (e) => {
+            document.getElementById('thresholdValue').textContent = e.target.value;
+            if (isConnected && document.getElementById('chromaToggle').checked) {
+                applyChromaKey();
+            }
+        });
+
+        document.getElementById('keyColorPicker').addEventListener('change', () => {
+            if (isConnected && document.getElementById('chromaToggle').checked) {
+                applyChromaKey();
+            }
+        });
+
+        document.getElementById('chromaToggle').addEventListener('change', (e) => {
+            if (e.target.checked && isConnected && videoElement) {
+                applyChromaKey();
+            } else if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+        });
+
+        // Initialize
+        console.log('Aurora Transparent Avatar Client loaded');
+    </script>
+</body>
+</html>
